@@ -1,0 +1,7 @@
+*.iml
+*.log
+*.exe
+.idea/
+eatspam
+eatspam.yaml
+eatspam.key

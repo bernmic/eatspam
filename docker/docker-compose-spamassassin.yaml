@@ -1,0 +1,8 @@
+version: "2"
+services:
+  spamassassin:
+    container_name: spamassassin
+    restart: always
+    image: dinkel/spamassassin
+    ports:
+      - "783:783"

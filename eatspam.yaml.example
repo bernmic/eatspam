@@ -1,0 +1,26 @@
+imapAccounts:
+  - name: <name for this account>
+    username: <imapuser>
+    password: <imappassword encrypted>
+    host: <imaphost>
+    tls: <true/false, default true>
+    inbox: INBOX
+    spamFolder: Spam
+  - name: <name for this account>
+    username: <imapuser>
+    password: <imappassword encrypted>
+    host: <imaphost>
+    tls: <true/false, default true>
+    inbox: INBOX
+    spamFolder: Spam
+spamd:
+  host: 127.0.0.1
+  port: 783
+  use: true
+rspamd:
+  host: 127.0.0.1
+  port: 11333
+  use: true
+daemon: true
+interval: 300s
+spamThreshold: 5.0

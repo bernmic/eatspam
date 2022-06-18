@@ -1,0 +1,29 @@
+version: '3.7'
+services:
+
+  rspamd-app:
+    image: neomediatech/rspamd
+    container_name: rspamd-app
+    depends_on:
+    - redis
+    ports:
+    - 11333:11333
+    - 11334:11334
+    volumes:
+    - ./logs/rspamd:/var/log/rspamd
+    - ./data/rspamd:/var/lib/rspamd
+    environment:
+    - CONTAINER_NAME=rspamd-app
+    - PASSWORD=password
+    restart: always
+    healthcheck:
+      disable: true
+
+  redis:
+    container_name: rspamd-redis
+    image: redis:latest
+    volumes:
+    - ./db/rspamd-redis:/var/lib/redis:Z
+    environment:
+    - CONTAINER_NAME=rspamd-redis
+    restart: always

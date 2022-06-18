@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EatSpam</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <h1>EatSpam</h1>
+    <ul class="list-group">
+        {{range .ImapAccounts}}
+        {{if .Ok}}
+        <li class="list-group-item list-group-item-success d-flex justify-content-between align-items-start">
+            <div class="ms-2 me-auto">
+                <div class="fw-bold">{{.Name}}</div>
+                {{.Host}}
+            </div>
+            <span class="badge bg-primary rounded-pill">{{.UnreadMails}}</span>
+        </li>
+        {{else}}
+        <li class="list-group-item list-group-item-danger d-flex justify-content-between align-items-start">
+            <div class="ms-2 me-auto">
+                <div class="fw-bold">{{.Name}}</div>
+                {{.Host}}
+            </div>
+            <span class="badge bg-primary rounded-pill">{{.UnreadMails}}</span>
+        </li>
+        {{end}}
+        {{end}}
+    </ul>
+</body>
+</html>
