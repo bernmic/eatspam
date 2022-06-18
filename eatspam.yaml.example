@@ -3,13 +3,15 @@ imapAccounts:
     username: <imapuser>
     password: <imappassword encrypted>
     host: <imaphost>
+    port: <imapport, default 993>
     tls: <true/false, default true>
     inbox: INBOX
-    spamFolder: Spam
+    spamFolder: Junkgto build .
   - name: <name for this account>
     username: <imapuser>
     password: <imappassword encrypted>
     host: <imaphost>
+    port: <imapport, default 993>
     tls: <true/false, default true>
     inbox: INBOX
     spamFolder: Spam
