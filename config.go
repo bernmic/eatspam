@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	defaultConfigFile     = "eatspam.yaml"
+	defaultConfigFile     = "config/eatspam.yaml"
+	defaultKeyFile        = "config/eatspam.key"
 	defaultSpamdPort      = 783
 	defaultSpamdUse       = true
 	defaultSpamdHost      = "127.0.0.1"
@@ -39,6 +40,8 @@ type Configuration struct {
 	Interval      string               `yaml:"interval,omitempty"`
 	HttpPort      int                  `yaml:"httpPort,omitempty"`
 	SpamPrefix    string               `yaml:"spamMark,omitempty"`
+	ConfigFile    string               `yaml:"-"`
+	KeyFile       string               `yaml:"keyFile,omitempty"`
 	encrypt       string
 	key           string
 }
@@ -105,18 +108,20 @@ func New() (*Configuration, error) {
 }
 
 func (c *Configuration) parseArguments() {
-	flag.BoolVar(&c.Spamd.Use, "spamdUse", defaultSpamdUse, "use spamd")
-	flag.StringVar(&c.Spamd.Host, "spamdHost", defaultSpamdHost, "spamd host name")
-	flag.IntVar(&c.Spamd.Port, "spamdPort", defaultSpamdPort, "Port of the spamd server")
-	flag.BoolVar(&c.Rspamd.Use, "rspamdUse", defaultRspamdUse, "use rspamd")
-	flag.StringVar(&c.Rspamd.Host, "rspamdHost", defaultRspamdHost, "rspamd host name")
-	flag.IntVar(&c.Rspamd.Port, "rspamdPort", defaultRspamdPort, "Port of the rspamd server")
-	flag.Float64Var(&c.SpamThreshold, "spamThreshold", defaultSpamMoveScore, "score to move to spam folder")
-	flag.StringVar(&c.Interval, "interval", defaultInterval, "interval for checking new mails")
-	flag.BoolVar(&c.Daemon, "daemon", defaultDaemon, "start in daemon mode")
-	flag.IntVar(&c.HttpPort, "port", defaultHttpPort, "Port for the WebUI")
+	flag.BoolVar(&c.Spamd.Use, "spamdUse", defaultSpamdUse, "use spamd, default true")
+	flag.StringVar(&c.Spamd.Host, "spamdHost", defaultSpamdHost, "spamd host name, default localhost")
+	flag.IntVar(&c.Spamd.Port, "spamdPort", defaultSpamdPort, "Port of the spamd server, default 783")
+	flag.BoolVar(&c.Rspamd.Use, "rspamdUse", defaultRspamdUse, "use rspamd, default true")
+	flag.StringVar(&c.Rspamd.Host, "rspamdHost", defaultRspamdHost, "rspamd host name, default localhost")
+	flag.IntVar(&c.Rspamd.Port, "rspamdPort", defaultRspamdPort, "Port of the rspamd server, default 11333")
+	flag.Float64Var(&c.SpamThreshold, "spamThreshold", defaultSpamMoveScore, "score to move to spam folder, default 5.0")
+	flag.StringVar(&c.Interval, "interval", defaultInterval, "interval for checking new mails, default 300s")
+	flag.BoolVar(&c.Daemon, "daemon", defaultDaemon, "start in daemon mode, default false")
+	flag.IntVar(&c.HttpPort, "port", defaultHttpPort, "Port for the WebUI, default 8080")
 	flag.StringVar(&c.encrypt, "encrypt", "", "password to encrypt with the internal key")
-	flag.StringVar(&c.SpamPrefix, "spamMark", defaultSpamMark, "subject prefix for spam mails")
+	flag.StringVar(&c.SpamPrefix, "spamMark", defaultSpamMark, "subject prefix for spam mails, default '*** SPAM ***'")
+	flag.StringVar(&c.ConfigFile, "configFile", defaultConfigFile, "location of configuration file, default 'config/eatspam.yaml'")
+	flag.StringVar(&c.KeyFile, "keyFile", defaultKeyFile, "location of the key file for password en-/decryption, default 'config/eatspam.key'")
 
 	flag.Parse()
 
@@ -170,7 +175,7 @@ func (c *Configuration) parseArguments() {
 		}
 		c.SpamThreshold = t
 	}
-	val, ok = os.LookupEnv("Interval")
+	val, ok = os.LookupEnv("INTERVAL")
 	if !isFlagPassed("interval") && ok {
 		c.Interval = val
 	}
@@ -190,6 +195,14 @@ func (c *Configuration) parseArguments() {
 			log.Fatalf("format for http port is wrong: %s", val)
 		}
 		c.HttpPort = p
+	}
+	val, ok = os.LookupEnv("CONFIG_FILE")
+	if !isFlagPassed("configFile") && ok {
+		c.ConfigFile = val
+	}
+	val, ok = os.LookupEnv("KEY_FILE")
+	if !isFlagPassed("keyFile") && ok {
+		c.KeyFile = val
 	}
 }
 

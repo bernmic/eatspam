@@ -23,7 +23,7 @@ func setup() (*Configuration, error) {
 	if len(c.ImapAccounts) == 0 {
 		return nil, fmt.Errorf("No imap accounts configured. Stopping here.")
 	}
-	b, err := os.ReadFile("eatspam.key")
+	b, err := os.ReadFile(c.KeyFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading key file: %v", err)
 	}

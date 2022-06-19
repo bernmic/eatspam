@@ -23,11 +23,11 @@ func main() {
 	d, _ := time.ParseDuration(conf.Interval)
 	log.Printf("Interval is %0.2f seconds\n", d.Seconds())
 
-	b, err := os.ReadFile("eatspam.key")
+	b, err := os.ReadFile(conf.KeyFile)
 	if err != nil {
 		s := generateKey()
 		b = []byte(s)
-		err = os.WriteFile("eatspam.key", b, 0600)
+		err = os.WriteFile(conf.KeyFile, b, 0600)
 		if err != nil {
 			log.Fatalf("error writing key file: %v", err)
 		}

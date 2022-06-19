@@ -3,5 +3,5 @@
 *.exe
 .idea/
 eatspam
-eatspam.yaml
-eatspam.key
+config/eatspam.yaml
+config/eatspam.key
