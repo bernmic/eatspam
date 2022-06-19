@@ -20,9 +20,10 @@ func (conf *SpamdConfiguration) spamdCheckIfSpam(s string, result chan checkSpam
 	// Check if a message is spam.
 	check, err := c.Check(ctx, msg, nil)
 	if err != nil {
-		result <- checkSpamResult{score: 0.0, err: err}
+		result <- checkSpamResult{score: 0.0, action: "", err: err}
+	} else {
+		result <- checkSpamResult{score: check.Score, action: "", err: nil}
 	}
-	result <- checkSpamResult{score: check.Score, err: nil}
 
 	// Report ham for training.
 	/*	tell, err := c.Tell(ctx, msg, spamc.Header{}.

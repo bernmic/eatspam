@@ -3,19 +3,24 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/Shopify/go-rspamd"
+	rspamd "github.com/Shopify/go-rspamd/v3"
+	"net/http"
 	"strings"
 )
 
 func (conf *RspamdConfiguration) rspamdCheckIfSpam(s string, result chan checkSpamResult) {
 	ctx := context.Background()
 	c := rspamd.New(conf.url())
-	mail := rspamd.NewEmailFromReader(strings.NewReader(s))
-	cr, err := c.Check(ctx, mail)
-	if err != nil {
-		result <- checkSpamResult{score: 0.0, err: err}
+	req := &rspamd.CheckRequest{
+		Message: strings.NewReader(s),
+		Header:  http.Header{},
 	}
-	result <- checkSpamResult{score: cr.Score, err: nil}
+	cr, err := c.Check(ctx, req)
+	if err != nil {
+		result <- checkSpamResult{score: 0.0, action: "", err: err}
+	} else {
+		result <- checkSpamResult{score: cr.Score, action: cr.Action, err: nil}
+	}
 }
 
 func (conf *RspamdConfiguration) url() string {

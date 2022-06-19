@@ -38,7 +38,7 @@ Usage of eatspam:
 ```
 
 - `eatspam --daemon` gets all parameters from eatspam.yaml or uses default values
-- `eatspam --enccrypt <string>` encrypts the given string with the internal key
+- `eatspam --encrypt <string>` encrypts the given string with the internal key
 - `eatspam` without any parameters runs the spam check one time and terminates
 
 eatspam.yaml.example show the structure of the configuration.

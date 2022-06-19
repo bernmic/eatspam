@@ -73,15 +73,18 @@ type RspamdConfiguration struct {
 }
 
 func New() (*Configuration, error) {
+	// peek cli params and environment for the configFile parameter
+	cl := configLocation()
 	c := Configuration{}
-	configdata, err := ioutil.ReadFile(defaultConfigFile)
+	// load and parse config file
+	configdata, err := ioutil.ReadFile(cl)
 	if err == nil {
 		err = yaml.Unmarshal([]byte(configdata), &c)
 		if err != nil {
 			return nil, fmt.Errorf("error unmarshalling config file: %v\n", err)
 		}
 	} else {
-		log.Printf("Config file not found. Use default parameters.\n")
+		log.Printf("Config file %d not found. Use default parameters.\n", cl)
 	}
 	if len(c.ImapAccounts) == 0 {
 		log.Fatalf("No imap accounts configured. Stopping here.")
@@ -103,6 +106,7 @@ func New() (*Configuration, error) {
 			a.SpamFolder = defaultImapSpamFolder
 		}
 	}
+	// parse all given cli parameters and environment variables
 	c.parseArguments()
 	return &c, nil
 }
@@ -214,4 +218,20 @@ func isFlagPassed(name string) bool {
 		}
 	})
 	return found
+}
+
+func configLocation() string {
+	args := os.Args
+	for i, a := range args {
+		if a == "-configFile" || a == "--configFile" {
+			if i >= len(args)-1 {
+				log.Fatalf("configFile parameter given without a value")
+			}
+			return args[i+1]
+		}
+	}
+	if a, ok := os.LookupEnv("CONFIG_FILE"); ok {
+		return a
+	}
+	return defaultConfigFile
 }

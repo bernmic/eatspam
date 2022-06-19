@@ -7,8 +7,9 @@ import (
 )
 
 type checkSpamResult struct {
-	score float64
-	err   error
+	score  float64
+	action string
+	err    error
 }
 
 func (conf *Configuration) spamChecker() error {
@@ -96,13 +97,13 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			if spamdResult.err != nil {
 				log.Printf("spamd error: %v", err)
 			} else if conf.Spamd.Use {
-				log.Printf("spamd score for '%s' is %0.1f\n", msg.Envelope.Subject, spamdResult.score)
+				log.Printf("spamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, spamdResult.score, rspamdResult.action)
 				averageResult = spamdResult.score
 			}
 			if rspamdResult.err != nil {
 				log.Printf("rspamd error: %v", err)
 			} else if conf.Rspamd.Use {
-				log.Printf("rspamd score for '%s' is %0.1f\n", msg.Envelope.Subject, rspamdResult.score)
+				log.Printf("rspamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, rspamdResult.score, rspamdResult.action)
 				if conf.Spamd.Use {
 					averageResult = (averageResult + rspamdResult.score) / 2
 				} else {
