@@ -70,7 +70,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	ic.UnreadMails = len(ids)
 	if len(ids) > 0 {
 		log.Printf("%d unread messages: %v", len(ids), ids)
-		spamIds := make([]uint32, 0)
+		actionIds := make(map[string][]uint32, 0)
 		msgs, err := ic.messagesWithId(ids)
 		if err != nil {
 			return fmt.Errorf("error fetching unread messages: %v", err)
@@ -95,33 +95,31 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			}
 			spamdResult := <-spamdChan
 			rspamdResult := <-rspamdChan
-			var averageResult float64
-			if spamdResult.err != nil {
-				log.Printf("spamd error: %v", err)
-			} else if conf.Spamd.Use {
-				log.Printf("spamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, spamdResult.score, spamdResult.action)
-				averageResult = spamdResult.score
-			}
-			if rspamdResult.err != nil {
-				log.Printf("rspamd error: %v", err)
-			} else if conf.Rspamd.Use {
-				log.Printf("rspamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, rspamdResult.score, rspamdResult.action)
-				if conf.Spamd.Use {
-					averageResult = (averageResult + rspamdResult.score) / 2
-				} else {
-					averageResult = rspamdResult.score
-				}
-			}
-			if averageResult >= conf.SpamThreshold {
-				log.Printf("Move it (%d) to spam folder %s\n", msg.SeqNum, ic.SpamFolder)
-				spamIds = append(spamIds, msg.SeqNum)
+			result := conf.overallResult(msg, spamdResult, rspamdResult)
+			if result.err != nil && result.action != spamActionNoAction {
+				log.Printf("action for message %d is %s\n", msg.SeqNum, result.action)
+				actionIds[result.action] = append(actionIds[result.action], msg.SeqNum)
 			}
 		}
-		if len(spamIds) > 0 {
-			err = ic.moveToSpam(spamIds...)
+		if len(actionIds[spamActionReject]) > 0 {
+			err = ic.moveToSpam(actionIds[spamActionReject]...)
 			if err != nil {
 				log.Printf("error moving spams to spam folder: %v", err)
 			}
+		}
+		if len(actionIds[spamActionAddHeader]) > 0 {
+			err = ic.addSpamToHeader(actionIds[spamActionAddHeader]...)
+			if err != nil {
+				log.Printf("error adding header to spam mails: %v", err)
+			}
+		}
+		if len(actionIds[spamActionRewriteSubject]) > 0 {
+			/*
+				err = ic.markSpamInSubject(conf.SpamPrefix, actionIds[spamActionRewriteSubject]...)
+				if err != nil {
+					log.Printf("error rewriting subject of spam mails: %v", err)
+				}
+			*/
 		}
 	}
 	log.Printf("end checking mail on %s\n", ic.Host)
@@ -167,7 +165,7 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdResult checkSpa
 		if !conf.Rspamd.Use {
 			log.Fatal("stategy rspamd is set but rspamd is not configured for use")
 		}
-		return spamdResult
+		return rspamdResult
 	case strategyLowest:
 		if conf.Spamd.Use && conf.Rspamd.Use {
 			if spamdResult.score < rspamdResult.score {

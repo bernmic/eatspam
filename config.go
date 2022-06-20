@@ -95,7 +95,7 @@ func New() (*Configuration, error) {
 			return nil, fmt.Errorf("error unmarshalling config file: %v\n", err)
 		}
 	} else {
-		log.Printf("Config file %d not found. Use default parameters.\n", cl)
+		log.Printf("Config file %s not found. Use default parameters.\n", cl)
 	}
 	if len(c.ImapAccounts) == 0 {
 		log.Fatalf("No imap accounts configured. Stopping here.")
