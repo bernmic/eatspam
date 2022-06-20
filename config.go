@@ -29,6 +29,15 @@ const (
 	defaultImapInbox      = "INBOX"
 	defaultImapSpamFolder = "Spam"
 	defaultSpamMark       = "*** SPAM ***"
+	defaultStrategy       = "average"
+)
+
+const (
+	strategyAverage = "average"
+	strategyLowest  = "lowest"
+	strategyHighest = "highest"
+	strategySpamd   = "spamd"
+	strategyRspamd  = "rspamd"
 )
 
 type Configuration struct {
@@ -42,6 +51,8 @@ type Configuration struct {
 	SpamPrefix    string               `yaml:"spamMark,omitempty"`
 	ConfigFile    string               `yaml:"-"`
 	KeyFile       string               `yaml:"keyFile,omitempty"`
+	Actions       map[float64]string   `yaml:"actions,omitempty"`
+	Strategy      string               `yaml:"strategy,omitempty"`
 	encrypt       string
 	key           string
 }
@@ -106,6 +117,13 @@ func New() (*Configuration, error) {
 			a.SpamFolder = defaultImapSpamFolder
 		}
 	}
+	if c.Actions == nil || len(c.Actions) == 0 {
+		c.Actions = map[float64]string{
+			4.0: spamActionAddHeader,
+			6.0: spamActionRewriteSubject,
+			8.0: spamActionReject,
+		}
+	}
 	// parse all given cli parameters and environment variables
 	c.parseArguments()
 	return &c, nil
@@ -126,6 +144,7 @@ func (c *Configuration) parseArguments() {
 	flag.StringVar(&c.SpamPrefix, "spamMark", defaultSpamMark, "subject prefix for spam mails, default '*** SPAM ***'")
 	flag.StringVar(&c.ConfigFile, "configFile", defaultConfigFile, "location of configuration file, default 'config/eatspam.yaml'")
 	flag.StringVar(&c.KeyFile, "keyFile", defaultKeyFile, "location of the key file for password en-/decryption, default 'config/eatspam.key'")
+	flag.StringVar(&c.Strategy, "strategy", defaultStrategy, "strategy for spam handling (average, lowest, highest, default 'average'")
 
 	flag.Parse()
 
@@ -207,6 +226,10 @@ func (c *Configuration) parseArguments() {
 	val, ok = os.LookupEnv("KEY_FILE")
 	if !isFlagPassed("keyFile") && ok {
 		c.KeyFile = val
+	}
+	val, ok = os.LookupEnv("STRATEGY")
+	if !isFlagPassed("strategy") && ok {
+		c.Strategy = val
 	}
 }
 

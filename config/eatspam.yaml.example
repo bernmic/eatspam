@@ -26,3 +26,7 @@ rspamd:
 daemon: true
 interval: 300s
 spamThreshold: 5.0
+actions:
+  4.0: add header
+  6.0: reject
+strategy: average

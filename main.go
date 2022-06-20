@@ -21,8 +21,13 @@ func main() {
 		log.Fatal(err)
 	}
 	d, _ := time.ParseDuration(conf.Interval)
-	log.Printf("Interval is %0.2f seconds\n", d.Seconds())
-
+	if conf.Daemon {
+		log.Println("Start eatspam in daemon mode")
+		log.Printf("Interval is %0.2f seconds\n", d.Seconds())
+	} else {
+		log.Println("Start eatspam in one time mode")
+	}
+	log.Printf("using strategy %s with thresholds %v\n", conf.Strategy, conf.Actions)
 	b, err := os.ReadFile(conf.KeyFile)
 	if err != nil {
 		s := generateKey()

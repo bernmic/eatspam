@@ -52,3 +52,32 @@ eatspam uses encrypted passwords for the IMAP server. On the first start eatspam
 a key file for password encryption. Again, location and name can be changed with cli parameter `--keyFile`. Passwords 
 can now be encrypted by calling eatspam with the cli parameter `--encrypt <password>`. The encrypted password will be 
 printed out and can be used in the password field for an IMAP configuration.
+
+## Configuration
+
+Strategy can be one of the following:
+
+### average (default)
+
+Take the average of all configured backends and calculate the action with the configured thresholds. Default threshold are:
+
+```
+  4.0: add header
+  6.0: reject
+```
+
+### lowest
+
+The lowest score and action is used
+
+### highest
+
+The highest score and action is used
+
+### spamd
+
+Use always spamd (spamassassin) result
+
+### rspamd
+
+Use always rspamd result
