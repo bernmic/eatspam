@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    {{.Name}}
     <nav class="navbar navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">
@@ -21,32 +22,16 @@
             IMAP accounts
         </div>
         <ul class="list-group list-group-flush">
-            {{range .ImapAccounts}}
-            {{if .Ok}}
+            {{range .MailboxNames}}
             <a class="list-group-item list-group-item-action list-group-item-success d-flex justify-content-between align-items-start" href="account.html?a={{.Name}}">
                 <div class="ms-2 me-auto">
-                    <div class="fw-bold">{{.Name}}</div>
-                    {{.Host}}
+                    {{.}}
                 </div>
-                <span class="badge bg-primary rounded-pill">{{.UnreadMails}}</span>
             </a>
-            {{else}}
-            <a class="list-group-item list-group-item-action list-group-item-danger d-flex justify-content-between align-items-start" href="account.html?a={{.Name}}">
-                <div class="ms-2 me-auto">
-                    <div class="fw-bold">{{.Name}}</div>
-                    {{.Host}}
-                </div>
-                <span class="badge bg-primary rounded-pill">{{.UnreadMails}}</span>
-            </a>
-            {{end}}
             {{end}}
         </ul>
     </div>
     </ul>
-    <script>
-        function click() {
-            console.log("Click!")
-        }
-    </script>
+
 </body>
 </html>

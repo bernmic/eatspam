@@ -44,10 +44,10 @@ type Configuration struct {
 	ImapAccounts  []*ImapConfiguration `yaml:"imapAccounts,omitempty"`
 	Spamd         SpamdConfiguration   `yaml:"spamd,omitempty"`
 	Rspamd        RspamdConfiguration  `yaml:"rspamd,omitempty"`
+	Http          HttpConfiguration    `yaml:"http,omitempty"`
 	SpamThreshold float64              `yaml:"spamThreshold,omitempty"`
 	Daemon        bool                 `yaml:"daemon,omitempty"`
 	Interval      string               `yaml:"interval,omitempty"`
-	HttpPort      int                  `yaml:"httpPort,omitempty"`
 	SpamPrefix    string               `yaml:"spamMark,omitempty"`
 	ConfigFile    string               `yaml:"-"`
 	KeyFile       string               `yaml:"keyFile,omitempty"`
@@ -58,17 +58,18 @@ type Configuration struct {
 }
 
 type ImapConfiguration struct {
-	Name        string         `yaml:"name,omitempty"`
-	Username    string         `yaml:"username,omitempty"`
-	Password    string         `yaml:"password,omitempty"`
-	Host        string         `yaml:"host,omitempty"`
-	Port        int            `yaml:"port,omitempty"`
-	Tls         bool           `yaml:"tls,omitempty"`
-	Inbox       string         `yaml:"inbox,omitempty"`
-	SpamFolder  string         `yaml:"spamFolder,omitempty"`
-	Ok          bool           `yaml:"-"`
-	UnreadMails int            `yaml:"-"`
-	client      *client.Client `yaml:"-"`
+	Name         string         `yaml:"name,omitempty"`
+	Username     string         `yaml:"username,omitempty"`
+	Password     string         `yaml:"password,omitempty"`
+	Host         string         `yaml:"host,omitempty"`
+	Port         int            `yaml:"port,omitempty"`
+	Tls          bool           `yaml:"tls,omitempty"`
+	Inbox        string         `yaml:"inbox,omitempty"`
+	SpamFolder   string         `yaml:"spamFolder,omitempty"`
+	Ok           bool           `yaml:"-"`
+	UnreadMails  int            `yaml:"-"`
+	client       *client.Client `yaml:"-"`
+	MailboxNames []string       `yaml:"-"`
 }
 
 type SpamdConfiguration struct {
@@ -81,6 +82,11 @@ type RspamdConfiguration struct {
 	Use  bool   `yaml:"use,omitempty"`
 	Host string `yaml:"host,omitempty"`
 	Port int    `yaml:"port,omitempty"`
+}
+
+type HttpConfiguration struct {
+	Port     int    `yaml:"port,omitempty"`
+	Password string `yaml:"password,omitempty"`
 }
 
 func New() (*Configuration, error) {
@@ -139,7 +145,7 @@ func (c *Configuration) parseArguments() {
 	flag.Float64Var(&c.SpamThreshold, "spamThreshold", defaultSpamMoveScore, "score to move to spam folder, default 5.0")
 	flag.StringVar(&c.Interval, "interval", defaultInterval, "interval for checking new mails, default 300s")
 	flag.BoolVar(&c.Daemon, "daemon", defaultDaemon, "start in daemon mode, default false")
-	flag.IntVar(&c.HttpPort, "port", defaultHttpPort, "Port for the WebUI, default 8080")
+	flag.IntVar(&c.Http.Port, "httpPort", defaultHttpPort, "Port for the WebUI, default 8080")
 	flag.StringVar(&c.encrypt, "encrypt", "", "password to encrypt with the internal key")
 	flag.StringVar(&c.SpamPrefix, "spamMark", defaultSpamMark, "subject prefix for spam mails, default '*** SPAM ***'")
 	flag.StringVar(&c.ConfigFile, "configFile", defaultConfigFile, "location of configuration file, default 'config/eatspam.yaml'")
@@ -210,14 +216,14 @@ func (c *Configuration) parseArguments() {
 		}
 		c.Daemon = b
 	}
-	val, ok = os.LookupEnv("PORT")
-	if !isFlagPassed("port") && ok {
+	val, ok = os.LookupEnv("HTTP_PORT")
+	if !isFlagPassed("httpPort") && ok {
 		//var err error = nil
 		p, err := strconv.Atoi(val)
 		if err != nil {
 			log.Fatalf("format for http port is wrong: %s", val)
 		}
-		c.HttpPort = p
+		c.Http.Port = p
 	}
 	val, ok = os.LookupEnv("CONFIG_FILE")
 	if !isFlagPassed("configFile") && ok {

@@ -96,7 +96,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			spamdResult := <-spamdChan
 			rspamdResult := <-rspamdChan
 			result := conf.overallResult(msg, spamdResult, rspamdResult)
-			if result.err != nil && result.action != spamActionNoAction {
+			if result.err == nil && result.action != spamActionNoAction {
 				log.Printf("action for message %d is %s\n", msg.SeqNum, result.action)
 				actionIds[result.action] = append(actionIds[result.action], msg.SeqNum)
 			}

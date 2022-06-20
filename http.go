@@ -14,6 +14,11 @@ const (
 	assetsDir   = "assets"
 )
 
+const (
+	secretPhrase   = "secret"
+	cookieLoggedIn = "loggedIn"
+)
+
 //go:embed templates
 var templates embed.FS
 
@@ -22,12 +27,37 @@ var assets embed.FS
 
 func (conf *Configuration) startHttpListener() {
 	http.HandleFunc("/", conf.handlerIndex)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%04d", conf.HttpPort), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%04d", conf.Http.Port), nil))
 }
 
 func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "" || r.RequestURI == "/" {
 		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
+	} else if r.RequestURI == "/login" && r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		pw := r.FormValue("password")
+		opw, err := decrypt(conf.Http.Password, conf.key)
+		log.Println(opw)
+		if err != nil || opw != pw {
+			renderUnauthorized(w, r)
+			return
+		}
+		secret, err := encrypt(secretPhrase, conf.key)
+		if err != nil {
+			renderServerError(w, r)
+			return
+		}
+		c := http.Cookie{
+			Name:   cookieLoggedIn,
+			Value:  secret,
+			MaxAge: 3600,
+		}
+		http.SetCookie(w, &c)
+		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
+
 	} else if f, err := templates.Open(templateDir + r.URL.Path); err == nil {
 		f.Close()
 		conf.handleTemplate(w, r)
@@ -36,7 +66,6 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 		conf.serveFile(w, r)
 	} else {
 		renderNotFound(w, r)
-		accessLog(r, http.StatusNotFound, "")
 	}
 }
 
@@ -49,10 +78,38 @@ func (conf *Configuration) handleTemplate(w http.ResponseWriter, r *http.Request
 	}
 	switch r.URL.Path {
 	case "/index.html":
+		if !conf.checkLoggedIn(w, r) {
+			return
+		}
 		err = t.Execute(w, conf)
 		if err != nil {
 			log.Printf("Error executing template /index.html: %v\n", err)
 		}
+	case "/login.html":
+		err = t.Execute(w, conf)
+		if err != nil {
+			log.Printf("Error executing template /login.html: %v\n", err)
+		}
+	case "/account.html":
+		if !conf.checkLoggedIn(w, r) {
+			return
+		}
+		a := r.URL.Query().Get("a")
+		for _, ia := range conf.ImapAccounts {
+			if ia.Name == a {
+				m, err := ia.mailboxes()
+				if err == nil && len(m) > 0 {
+					mbs := make([]string, 0)
+					for _, mb := range mbs {
+						mbs = append(mbs, mb)
+					}
+					ia.MailboxNames = mbs
+					err = t.Execute(w, ia)
+					return
+				}
+			}
+		}
+		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
 	}
 	accessLog(r, http.StatusOK, r.RequestURI)
 }
@@ -95,11 +152,37 @@ func (conf *Configuration) serveFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (conf *Configuration) checkLoggedIn(w http.ResponseWriter, r *http.Request) bool {
+	cookie, err := r.Cookie(cookieLoggedIn)
+	if err == nil {
+		osp, err := decrypt(cookie.Value, conf.key)
+		if err == nil && strings.Compare(osp, secretPhrase) == 0 {
+			return true
+		}
+	}
+	c := http.Cookie{
+		Name:   cookieLoggedIn,
+		Value:  "",
+		MaxAge: 0,
+	}
+	http.SetCookie(w, &c)
+	http.Redirect(w, r, "/login.html", http.StatusMovedPermanently)
+	return false
+}
+
 func renderNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	_, err := fmt.Fprintf(w, "Could not find the page you requested: %s.", r.RequestURI)
 	if err != nil {
 		accessLog(r, http.StatusInternalServerError, "write not found")
+	}
+}
+
+func renderUnauthorized(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusUnauthorized)
+	_, err := fmt.Fprintf(w, "Unauthorized")
+	if err != nil {
+		accessLog(r, http.StatusInternalServerError, "unauthorized")
 	}
 }
 
