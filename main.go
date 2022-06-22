@@ -20,20 +20,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	d, _ := time.ParseDuration(conf.Interval)
-	if conf.Daemon {
-		log.Println("Start eatspam in daemon mode")
-		log.Printf("Interval is %0.2f seconds\n", d.Seconds())
-	} else {
-		log.Println("Start eatspam in one time mode")
-	}
-	log.Printf("using strategy %s with thresholds %v\n", conf.Strategy, conf.Actions)
-	if conf.Spamd.Use {
-		log.Printf("use spamd at '%s' with port %d", conf.Spamd.Host, conf.Spamd.Port)
-	}
-	if conf.Rspamd.Use {
-		log.Printf("use rspamd at '%s' with port %d", conf.Rspamd.Host, conf.Rspamd.Port)
-	}
 	b, err := os.ReadFile(conf.KeyFile)
 	if err != nil {
 		s := generateKey()
@@ -52,6 +38,20 @@ func main() {
 		}
 		fmt.Println(s)
 		os.Exit(0)
+	}
+	d, _ := time.ParseDuration(conf.Interval)
+	if conf.Daemon {
+		log.Println("Start eatspam in daemon mode")
+		log.Printf("Interval is %0.2f seconds\n", d.Seconds())
+	} else {
+		log.Println("Start eatspam in one time mode")
+	}
+	log.Printf("using strategy %s with thresholds %v\n", conf.Strategy, conf.Actions)
+	if conf.Spamd.Use {
+		log.Printf("use spamd at '%s' with port %d", conf.Spamd.Host, conf.Spamd.Port)
+	}
+	if conf.Rspamd.Use {
+		log.Printf("use rspamd at '%s' with port %d", conf.Rspamd.Host, conf.Rspamd.Port)
 	}
 	if conf.Daemon {
 		conf.startCron()

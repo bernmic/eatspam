@@ -154,6 +154,7 @@ func (c *Configuration) parseArguments() {
 
 	flag.Parse()
 
+	c.encrypt = cp.encrypt
 	c.Spamd.Use = boolConfig("spamdUse", cp.Spamd.Use, "SPAMD_USE", c.Spamd.Use)
 	c.Spamd.Host = stringConfig("spamdHold", cp.Spamd.Host, "SPAMD_HOST", c.Spamd.Host)
 	c.Spamd.Port = intConfig("spamdPort", cp.Spamd.Port, "SPAMD_PORT", c.Spamd.Port)
