@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
@@ -13,7 +14,8 @@ import (
 
 func (ic *ImapConfiguration) connect() error {
 	s := fmt.Sprintf("%s:%d", ic.Host, ic.Port)
-	c, err := client.DialTLS(s, nil)
+	tlsConfig := tls.Config{InsecureSkipVerify: true}
+	c, err := client.DialTLS(s, &tlsConfig)
 	if err != nil {
 		return err
 	}

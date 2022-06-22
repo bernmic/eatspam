@@ -135,107 +135,45 @@ func New() (*Configuration, error) {
 }
 
 func (c *Configuration) parseArguments() {
-	flag.BoolVar(&c.Spamd.Use, "spamdUse", defaultSpamdUse, "use spamd, default true")
-	flag.StringVar(&c.Spamd.Host, "spamdHost", defaultSpamdHost, "spamd host name, default localhost")
-	flag.IntVar(&c.Spamd.Port, "spamdPort", defaultSpamdPort, "Port of the spamd server, default 783")
-	flag.BoolVar(&c.Rspamd.Use, "rspamdUse", defaultRspamdUse, "use rspamd, default true")
-	flag.StringVar(&c.Rspamd.Host, "rspamdHost", defaultRspamdHost, "rspamd host name, default localhost")
-	flag.IntVar(&c.Rspamd.Port, "rspamdPort", defaultRspamdPort, "Port of the rspamd server, default 11333")
-	flag.Float64Var(&c.SpamThreshold, "spamThreshold", defaultSpamMoveScore, "score to move to spam folder, default 5.0")
-	flag.StringVar(&c.Interval, "interval", defaultInterval, "interval for checking new mails, default 300s")
-	flag.BoolVar(&c.Daemon, "daemon", defaultDaemon, "start in daemon mode, default false")
-	flag.IntVar(&c.Http.Port, "httpPort", defaultHttpPort, "Port for the WebUI, default 8080")
-	flag.StringVar(&c.encrypt, "encrypt", "", "password to encrypt with the internal key")
-	flag.StringVar(&c.SpamPrefix, "spamMark", defaultSpamMark, "subject prefix for spam mails, default '*** SPAM ***'")
-	flag.StringVar(&c.ConfigFile, "configFile", defaultConfigFile, "location of configuration file, default 'config/eatspam.yaml'")
-	flag.StringVar(&c.KeyFile, "keyFile", defaultKeyFile, "location of the key file for password en-/decryption, default 'config/eatspam.key'")
-	flag.StringVar(&c.Strategy, "strategy", defaultStrategy, "strategy for spam handling (average, lowest, highest, default 'average'")
+	cp := Configuration{}
+	flag.BoolVar(&cp.Spamd.Use, "spamdUse", defaultSpamdUse, "use spamd, default true")
+	flag.StringVar(&cp.Spamd.Host, "spamdHost", defaultSpamdHost, "spamd host name, default localhost")
+	flag.IntVar(&cp.Spamd.Port, "spamdPort", defaultSpamdPort, "Port of the spamd server, default 783")
+	flag.BoolVar(&cp.Rspamd.Use, "rspamdUse", defaultRspamdUse, "use rspamd, default true")
+	flag.StringVar(&cp.Rspamd.Host, "rspamdHost", defaultRspamdHost, "rspamd host name, default localhost")
+	flag.IntVar(&cp.Rspamd.Port, "rspamdPort", defaultRspamdPort, "Port of the rspamd server, default 11333")
+	flag.Float64Var(&cp.SpamThreshold, "spamThreshold", defaultSpamMoveScore, "score to move to spam folder, default 5.0")
+	flag.StringVar(&cp.Interval, "interval", defaultInterval, "interval for checking new mails, default 300s")
+	flag.BoolVar(&cp.Daemon, "daemon", defaultDaemon, "start in daemon mode, default false")
+	flag.IntVar(&cp.Http.Port, "httpPort", defaultHttpPort, "Port for the WebUI, default 8080")
+	flag.StringVar(&cp.encrypt, "encrypt", "", "password to encrypt with the internal key")
+	flag.StringVar(&cp.SpamPrefix, "spamMark", defaultSpamMark, "subject prefix for spam mails, default '*** SPAM ***'")
+	flag.StringVar(&cp.ConfigFile, "configFile", defaultConfigFile, "location of configuration file, default 'config/eatspam.yaml'")
+	flag.StringVar(&cp.KeyFile, "keyFile", defaultKeyFile, "location of the key file for password en-/decryption, default 'config/eatspam.key'")
+	flag.StringVar(&cp.Strategy, "strategy", defaultStrategy, "strategy for spam handling (average, lowest, highest, default 'average'")
 
 	flag.Parse()
 
-	val, ok := os.LookupEnv("SPAMD_USE")
-	if !isFlagPassed("spamdUse") && ok {
-		b, err := strconv.ParseBool(val)
-		if err != nil {
-			log.Fatalf("format for spamd use is wrong: %s", val)
-		}
-		c.Spamd.Use = b
-	}
-	val, ok = os.LookupEnv("SPAMD_HOST")
-	if !isFlagPassed("spamdHost") && ok {
-		c.Spamd.Host = val
-	}
-	val, ok = os.LookupEnv("SPAMD_PORT")
-	if !isFlagPassed("spamdPort") && ok {
-		//var err error = nil
-		p, err := strconv.Atoi(val)
-		if err != nil {
-			log.Fatalf("format for spamd port is wrong: %s", val)
-		}
-		c.Spamd.Port = p
-	}
-	val, ok = os.LookupEnv("RSPAMD_USE")
-	if !isFlagPassed("rspamdUse") && ok {
-		b, err := strconv.ParseBool(val)
-		if err != nil {
-			log.Fatalf("format for rspamd use is wrong: %s", val)
-		}
-		c.Rspamd.Use = b
-	}
-	val, ok = os.LookupEnv("RSPAMD_HOST")
-	if !isFlagPassed("rspamdHost") && ok {
-		c.Rspamd.Host = val
-	}
-	val, ok = os.LookupEnv("RSPAMD_PORT")
-	if !isFlagPassed("rspamdPort") && ok {
-		//var err error = nil
-		p, err := strconv.Atoi(val)
-		if err != nil {
-			log.Fatalf("format for rspamd port is wrong: %s", val)
-		}
-		c.Rspamd.Port = p
-	}
-	val, ok = os.LookupEnv("SPAM_THRESHOLD")
-	if !isFlagPassed("spamThreshold") && ok {
-		t, err := strconv.ParseFloat(val, 64)
-		if err != nil {
-			log.Fatalf("format for spam threshold is wrong: %s", val)
-		}
-		c.SpamThreshold = t
-	}
-	val, ok = os.LookupEnv("INTERVAL")
-	if !isFlagPassed("interval") && ok {
-		c.Interval = val
-	}
-	val, ok = os.LookupEnv("DAEMON")
-	if !isFlagPassed("daemon") && ok {
-		b, err := strconv.ParseBool(val)
-		if err != nil {
-			log.Fatalf("format for daemon use is wrong: %s", val)
-		}
-		c.Daemon = b
-	}
-	val, ok = os.LookupEnv("HTTP_PORT")
-	if !isFlagPassed("httpPort") && ok {
-		//var err error = nil
-		p, err := strconv.Atoi(val)
-		if err != nil {
-			log.Fatalf("format for http port is wrong: %s", val)
-		}
-		c.Http.Port = p
-	}
-	val, ok = os.LookupEnv("CONFIG_FILE")
-	if !isFlagPassed("configFile") && ok {
-		c.ConfigFile = val
-	}
-	val, ok = os.LookupEnv("KEY_FILE")
-	if !isFlagPassed("keyFile") && ok {
-		c.KeyFile = val
-	}
-	val, ok = os.LookupEnv("STRATEGY")
-	if !isFlagPassed("strategy") && ok {
-		c.Strategy = val
-	}
+	c.Spamd.Use = boolConfig("spamdUse", cp.Spamd.Use, "SPAMD_USE", c.Spamd.Use)
+	c.Spamd.Host = stringConfig("spamdHold", cp.Spamd.Host, "SPAMD_HOST", c.Spamd.Host)
+	c.Spamd.Port = intConfig("spamdPort", cp.Spamd.Port, "SPAMD_PORT", c.Spamd.Port)
+
+	c.Rspamd.Use = boolConfig("rspamdUse", cp.Rspamd.Use, "RSPAMD_USE", c.Rspamd.Use)
+	c.Rspamd.Host = stringConfig("rspamdHold", cp.Rspamd.Host, "RSPAMD_HOST", c.Rspamd.Host)
+	c.Rspamd.Port = intConfig("rspamdPort", cp.Rspamd.Port, "RSPAMD_PORT", c.Rspamd.Port)
+
+	c.SpamThreshold = floatConfig("spamThreshold", cp.SpamThreshold, "SPAM_THRESHOLD", c.SpamThreshold)
+
+	c.Interval = stringConfig("interval", cp.Interval, "INTERVAL", c.Interval)
+
+	c.Daemon = boolConfig("daemon", cp.Daemon, "DAEMON", c.Daemon)
+
+	c.Http.Port = intConfig("httpPort", cp.Http.Port, "HTTP_PORT", c.Http.Port)
+
+	c.ConfigFile = stringConfig("configFile", cp.ConfigFile, "CONFIG_FILE", c.ConfigFile)
+	c.KeyFile = stringConfig("keyFile", cp.KeyFile, "KEY_FILE", c.KeyFile)
+
+	c.Strategy = stringConfig("strategy", cp.Strategy, "STRATEGY", c.Strategy)
 }
 
 func isFlagPassed(name string) bool {
@@ -262,4 +200,61 @@ func configLocation() string {
 		return a
 	}
 	return defaultConfigFile
+}
+
+func stringConfig(parmName string, parmValue string, envName string, fileValue string) string {
+	if isFlagPassed(parmName) {
+		return parmValue
+	} else if val, ok := os.LookupEnv(envName); ok {
+		return val
+	}
+	if fileValue == "" {
+		return parmValue
+	}
+	return fileValue
+}
+
+func intConfig(parmName string, parmValue int, envName string, fileValue int) int {
+	if isFlagPassed(parmName) {
+		return parmValue
+	} else if val, ok := os.LookupEnv(envName); ok {
+		p, err := strconv.Atoi(val)
+		if err != nil {
+			log.Fatalf("format for int is wrong: %s", val)
+		}
+		return p
+	}
+	if fileValue == 0 {
+		return parmValue
+	}
+	return fileValue
+}
+
+func floatConfig(parmName string, parmValue float64, envName string, fileValue float64) float64 {
+	if isFlagPassed(parmName) {
+		return parmValue
+	} else if val, ok := os.LookupEnv(envName); ok {
+		t, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			log.Fatalf("format for float is wrong: %s", val)
+		}
+		return t
+	}
+	if fileValue == 0.0 {
+		return parmValue
+	}
+	return fileValue
+}
+
+func boolConfig(parmName string, parmValue bool, envName string, fileValue bool) bool {
+	if isFlagPassed(parmName) {
+		return parmValue
+	} else if val, ok := os.LookupEnv(envName); ok {
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			log.Fatalf("format for bool is wrong: %s", val)
+		}
+		return b
+	}
+	return fileValue
 }

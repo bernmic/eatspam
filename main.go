@@ -28,6 +28,12 @@ func main() {
 		log.Println("Start eatspam in one time mode")
 	}
 	log.Printf("using strategy %s with thresholds %v\n", conf.Strategy, conf.Actions)
+	if conf.Spamd.Use {
+		log.Printf("use spamd at '%s' with port %d", conf.Spamd.Host, conf.Spamd.Port)
+	}
+	if conf.Rspamd.Use {
+		log.Printf("use rspamd at '%s' with port %d", conf.Rspamd.Host, conf.Rspamd.Port)
+	}
 	b, err := os.ReadFile(conf.KeyFile)
 	if err != nil {
 		s := generateKey()

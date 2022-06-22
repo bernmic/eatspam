@@ -8,4 +8,4 @@ FROM scratch
 COPY --from=builder /go/bin/main /app/
 WORKDIR /app
 VOLUME /app/config
-CMD ["./main"]
+CMD ["./main", "--daemon"]
