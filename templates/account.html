@@ -8,30 +8,24 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    {{.Name}}
-    <nav class="navbar navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">
-                <img src="images/pacman.svg" alt="" width="24" height="24" class="d-inline-block align-text-top">
-                EatSpam
-            </a>
-        </div>
-    </nav>
+    {{template "navbar" .}}
     <div class="card w-100">
         <div class="card-header">
-            IMAP accounts
+            {{.Imap.Name}}
         </div>
-        <ul class="list-group list-group-flush">
-            {{range .MailboxNames}}
-            <a class="list-group-item list-group-item-action list-group-item-success d-flex justify-content-between align-items-start" href="account.html?a={{.Name}}">
-                <div class="ms-2 me-auto">
-                    {{.}}
+        <ul class="list-group">
+            {{range $mbox := .MailboxNames}}
+            <li class="list-group-item">
+                {{$mbox}}
+                <div class="float-end">
+                    <a href="#" class="btn btn-success">Learn Ham</a>
+                    <a href="#" class="btn btn-danger">Learn Spam</a>
                 </div>
-            </a>
+            </li>
             {{end}}
         </ul>
     </div>
     </ul>
-
+    <script src="js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

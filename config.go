@@ -58,18 +58,17 @@ type Configuration struct {
 }
 
 type ImapConfiguration struct {
-	Name         string         `yaml:"name,omitempty"`
-	Username     string         `yaml:"username,omitempty"`
-	Password     string         `yaml:"password,omitempty"`
-	Host         string         `yaml:"host,omitempty"`
-	Port         int            `yaml:"port,omitempty"`
-	Tls          bool           `yaml:"tls,omitempty"`
-	Inbox        string         `yaml:"inbox,omitempty"`
-	SpamFolder   string         `yaml:"spamFolder,omitempty"`
-	Ok           bool           `yaml:"-"`
-	UnreadMails  int            `yaml:"-"`
-	client       *client.Client `yaml:"-"`
-	MailboxNames []string       `yaml:"-"`
+	Name        string         `yaml:"name,omitempty"`
+	Username    string         `yaml:"username,omitempty"`
+	Password    string         `yaml:"password,omitempty"`
+	Host        string         `yaml:"host,omitempty"`
+	Port        int            `yaml:"port,omitempty"`
+	Tls         bool           `yaml:"tls,omitempty"`
+	Inbox       string         `yaml:"inbox,omitempty"`
+	SpamFolder  string         `yaml:"spamFolder,omitempty"`
+	Ok          bool           `yaml:"-"`
+	UnreadMails int            `yaml:"-"`
+	client      *client.Client `yaml:"-"`
 }
 
 type SpamdConfiguration struct {

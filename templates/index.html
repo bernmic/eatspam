@@ -8,20 +8,18 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">
-                <img src="images/pacman.svg" alt="" width="24" height="24" class="d-inline-block align-text-top">
-                EatSpam
-            </a>
-        </div>
-    </nav>
+    {{template "navbar" .}}
+    {{if ne .MessageText ""}}
+    <div class="alert alert-{{.MessageType}}" role="alert">
+        {{.MessageText}}
+    </div>
+    {{end}}
     <div class="card w-100">
         <div class="card-header">
             IMAP accounts
         </div>
         <ul class="list-group list-group-flush">
-            {{range .ImapAccounts}}
+            {{range .Configuration.ImapAccounts}}
             {{if .Ok}}
             <a class="list-group-item list-group-item-action list-group-item-success d-flex justify-content-between align-items-start" href="account.html?a={{.Name}}">
                 <div class="ms-2 me-auto">
@@ -43,10 +41,6 @@
         </ul>
     </div>
     </ul>
-    <script>
-        function click() {
-            console.log("Click!")
-        }
-    </script>
+    <script src="js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

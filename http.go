@@ -19,6 +19,11 @@ const (
 	cookieLoggedIn = "loggedIn"
 )
 
+var (
+	lastMessageText string
+	lastMessageType string
+)
+
 //go:embed templates
 var templates embed.FS
 
@@ -33,6 +38,14 @@ func (conf *Configuration) startHttpListener() {
 func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "" || r.RequestURI == "/" {
 		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
+	} else if r.RequestURI == "/logout" {
+		c := http.Cookie{
+			Name:   cookieLoggedIn,
+			Value:  "",
+			MaxAge: 0,
+		}
+		http.SetCookie(w, &c)
+		http.Redirect(w, r, "/login.html", http.StatusMovedPermanently)
 	} else if r.RequestURI == "/login" && r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
@@ -70,46 +83,19 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 }
 
 func (conf *Configuration) handleTemplate(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFS(templates, templateDir+r.URL.Path)
-	if err != nil {
-		log.Printf("Error parsing template %s: %v\n", r.URL.Path, err)
-		renderServerError(w, r)
-		return
-	}
 	switch r.URL.Path {
 	case "/index.html":
 		if !conf.checkLoggedIn(w, r) {
 			return
 		}
-		err = t.Execute(w, conf)
-		if err != nil {
-			log.Printf("Error executing template /index.html: %v\n", err)
-		}
+		conf.renderIndex(w, r)
 	case "/login.html":
-		err = t.Execute(w, conf)
-		if err != nil {
-			log.Printf("Error executing template /login.html: %v\n", err)
-		}
+		conf.renderLogin(w, r)
 	case "/account.html":
 		if !conf.checkLoggedIn(w, r) {
 			return
 		}
-		a := r.URL.Query().Get("a")
-		for _, ia := range conf.ImapAccounts {
-			if ia.Name == a {
-				m, err := ia.mailboxes()
-				if err == nil && len(m) > 0 {
-					mbs := make([]string, 0)
-					for _, mb := range mbs {
-						mbs = append(mbs, mb)
-					}
-					ia.MailboxNames = mbs
-					err = t.Execute(w, ia)
-					return
-				}
-			}
-		}
-		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
+		conf.renderAccount(w, r)
 	}
 	accessLog(r, http.StatusOK, r.RequestURI)
 }
@@ -152,9 +138,96 @@ func (conf *Configuration) serveFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type IndexData struct {
+	Page          string
+	MessageText   string
+	MessageType   string
+	Configuration *Configuration
+}
+
+func (conf *Configuration) renderIndex(w http.ResponseWriter, r *http.Request) {
+	t, err := template.ParseFS(templates, templateDir+r.URL.Path, templateDir+"/navbar.html")
+	if err != nil {
+		log.Printf("Error parsing template %s: %v\n", r.URL.Path, err)
+		renderServerError(w, r)
+		return
+	}
+	err = t.Execute(w, IndexData{Page: "index", Configuration: conf, MessageType: lastMessageType, MessageText: lastMessageText})
+	if err != nil {
+		log.Printf("Error executing template /index.html: %v\n", err)
+	}
+	lastMessageType = ""
+	lastMessageText = ""
+}
+
+func (conf *Configuration) renderLogin(w http.ResponseWriter, r *http.Request) {
+	t, err := template.ParseFS(templates, templateDir+r.URL.Path)
+	if err != nil {
+		log.Printf("Error parsing template %s: %v\n", r.URL.Path, err)
+		renderServerError(w, r)
+		return
+	}
+	err = t.Execute(w, conf)
+	if err != nil {
+		log.Printf("Error executing template /login.html: %v\n", err)
+	}
+}
+
+type AccountData struct {
+	Page         string
+	Imap         *ImapConfiguration
+	MailboxNames []string
+}
+
+func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request) {
+	t, err := template.ParseFS(templates, templateDir+r.URL.Path, templateDir+"/navbar.html")
+	if err != nil {
+		log.Printf("Error parsing template %s: %v\n", r.URL.Path, err)
+		renderServerError(w, r)
+		return
+	}
+	a := r.URL.Query().Get("a")
+	for _, ia := range conf.ImapAccounts {
+		if ia.Name == a {
+			err := ia.connect()
+			if err != nil {
+				log.Fatalf("imap login to %s failed: %v", ia.Host, err)
+			}
+			err = ia.login(conf.key)
+			if err != nil {
+				renderServerError(w, r)
+				return
+			}
+			defer ia.logout()
+			m, err := ia.mailboxes()
+			if err != nil {
+				log.Printf("error getting mailbox list for %s: %v", ia.Name, err)
+				renderServerError(w, r)
+				return
+			} else if len(m) > 0 {
+				mbs := make([]string, 0)
+				for mb := range m {
+					mbs = append(mbs, mb.Name)
+				}
+				ad := AccountData{
+					Page:         "account",
+					Imap:         ia,
+					MailboxNames: mbs,
+				}
+				err = t.Execute(w, &ad)
+				return
+			}
+		}
+	}
+	lastMessageText = fmt.Sprintf("IMAP account '%s' not found", a)
+	lastMessageType = "danger"
+	http.Redirect(w, r, "index.html", http.StatusFound)
+	//renderNotFound(w, r)
+}
+
 func (conf *Configuration) checkLoggedIn(w http.ResponseWriter, r *http.Request) bool {
 	cookie, err := r.Cookie(cookieLoggedIn)
-	if err == nil {
+	if err == nil && cookie.Value != "" {
 		osp, err := decrypt(cookie.Value, conf.key)
 		if err == nil && strings.Compare(osp, secretPhrase) == 0 {
 			return true
@@ -166,7 +239,7 @@ func (conf *Configuration) checkLoggedIn(w http.ResponseWriter, r *http.Request)
 		MaxAge: 0,
 	}
 	http.SetCookie(w, &c)
-	http.Redirect(w, r, "/login.html", http.StatusMovedPermanently)
+	http.Redirect(w, r, "/login.html", http.StatusFound)
 	return false
 }
 

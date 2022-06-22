@@ -1,0 +1,31 @@
+{{define "navbar"}}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+            <img src="images/pacman.svg" width="24" height="24">
+            eatspam
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    {{if eq $.Page "index"}}
+                    <a class="nav-link active" aria-current="page" href="/index.html">Home</a>
+                    {{else}}
+                    <a class="nav-link" href="/index.html">Home</a>
+                    {{end}}
+                </li>
+            </ul>
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item float-end">
+                    <a href="/logout" class="nav-link">
+                        <img src="images/door-open.svg" width="24" height="24" class="navbar-image">
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{{end}}

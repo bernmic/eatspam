@@ -34,6 +34,28 @@ func (ic *ImapConfiguration) mailboxes() (chan *imap.MailboxInfo, error) {
 	return mailboxList, nil
 }
 
+func (ic *ImapConfiguration) login(key string) error {
+	pw, err := decrypt(ic.Password, key)
+	if err != nil {
+		return fmt.Errorf("error decrypting password for %s: %v", ic.Host, err)
+	}
+	if err := ic.client.Login(ic.Username, pw); err != nil {
+		if err == client.ErrAlreadyLoggedIn {
+			log.Println("warning: already logged in")
+			return nil
+		}
+		return fmt.Errorf("error login to %s: %v", ic.Host, err)
+	}
+	return nil
+}
+
+func (ic *ImapConfiguration) logout() {
+	err := ic.client.Logout()
+	if err != nil {
+		log.Printf("error logging out: %v", err)
+	}
+}
+
 func (ic *ImapConfiguration) lastNMessages(mbox *imap.MailboxStatus, n uint32) ([]*imap.Message, error) {
 	// Get the last n messages
 	from := uint32(1)
