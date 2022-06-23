@@ -34,9 +34,10 @@ func (conf *Configuration) spamChecker() error {
 }
 
 func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
+	log.Printf("start checking mail on %s\n", ic.Host)
 	err := ic.connect()
 	if err != nil {
-		log.Fatalf("imap login to %s failed: %v", ic.Host, err)
+		return fmt.Errorf("error: imap connect to %s for account %s failed: %v", ic.Host, ic.Name, err)
 	}
 	defer func() {
 		err := ic.client.Logout()
@@ -54,8 +55,6 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	}
 
 	ic.Ok = true
-	log.Printf("start checking mail on %s\n", ic.Host)
-
 	mbox, err := ic.client.Select(ic.Inbox, true)
 	if err != nil {
 		return fmt.Errorf("error selecting INBOX %s: %v\n", ic.Inbox, err)

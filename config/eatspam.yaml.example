@@ -30,3 +30,6 @@ actions:
   4.0: add header
   6.0: reject
 strategy: average
+http:
+  port: 8080
+  password: <encrypted web password>

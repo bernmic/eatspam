@@ -1,0 +1,58 @@
+version: '3.7'
+services:
+
+  eatspam:
+    image: darthbermel/eatspam:latest
+    container_name: eatspam
+    depends_on:
+     - rspamd
+     - spamd
+    ports:
+      - "8080:8080"
+    restart: always
+    volumes:
+      - ./config:/app/config
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CONTAINER_NAME=eatspam
+
+  rspamd:
+    image: neomediatech/rspamd
+    container_name: rspamd
+    depends_on:
+      - redis
+    ports:
+      - 11333:11333
+      - 11334:11334
+    volumes:
+      - ./logs/rspamd:/var/log/rspamd
+      - ./data/rspamd:/var/lib/rspamd
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+    environment:
+      - CONTAINER_NAME=rspamd-app
+      - PASSWORD=password
+
+    restart: always
+    healthcheck:
+      disable: false
+
+  redis:
+    container_name: rspamd-redis
+    image: redis:latest
+    volumes:
+      - ./db/rspamd-redis:/var/lib/redis:Z
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CONTAINER_NAME=rspamd-redis
+    restart: always
+
+  spamd:
+    container_name: spamd
+    restart: always
+    image: dinkel/spamassassin
+    ports:
+      - "783:783"
