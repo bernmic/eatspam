@@ -68,7 +68,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	ic.UnreadMails = len(ids)
 	if len(ids) > 0 {
 		log.Printf("%d unread messages: %v", len(ids), ids)
-		actionIds := make(map[string][]uint32, 0)
+		actions := make(map[uint32]string, 0)
 		msgs, err := ic.messagesWithId(ids)
 		if err != nil {
 			return fmt.Errorf("error fetching unread messages: %v", err)
@@ -90,28 +90,33 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			result := conf.overallResult(msg, spamdChan, rspamdChan)
 			if result.err == nil && result.action != spamActionNoAction {
 				log.Printf("action for message %d is %s\n", msg.SeqNum, result.action)
-				actionIds[result.action] = append(actionIds[result.action], msg.SeqNum)
+				actions[msg.SeqNum] = result.action
 			}
 		}
-		if len(actionIds[spamActionReject]) > 0 {
-			err = ic.moveToSpam(actionIds[spamActionReject]...)
-			if err != nil {
-				log.Printf("error moving spams to spam folder: %v", err)
+		if len(actions) > 0 {
+			actionIds := make([]uint32, 0)
+			for k, _ := range actions {
+				actionIds = append(actionIds, k)
 			}
-		}
-		if len(actionIds[spamActionAddHeader]) > 0 {
-			err = ic.addSpamToHeader(actionIds[spamActionAddHeader]...)
-			if err != nil {
-				log.Printf("error adding header to spam mails: %v", err)
-			}
-		}
-		if len(actionIds[spamActionRewriteSubject]) > 0 {
-			/*
-				err = ic.markSpamInSubject(conf.SpamPrefix, actionIds[spamActionRewriteSubject]...)
-				if err != nil {
-					log.Printf("error rewriting subject of spam mails: %v", err)
+			for i := len(actionIds) - 1; i >= 0; i-- {
+				switch actions[actionIds[i]] {
+				case spamActionReject:
+					err = ic.moveToSpam(actionIds[i])
+					if err != nil {
+						log.Printf("error moving spams to spam folder: %v", err)
+					}
+				case spamActionAddHeader:
+					err = ic.addSpamToHeader(actionIds[i])
+					if err != nil {
+						log.Printf("error adding header to spam mails: %v", err)
+					}
+				case spamActionRewriteSubject:
+					err = ic.markSpamInSubject(conf.SpamPrefix, actionIds[i])
+					if err != nil {
+						log.Printf("error rewriting subject of spam mails: %v", err)
+					}
 				}
-			*/
+			}
 		}
 	}
 	log.Printf("end checking mail on %s\n", ic.Host)
