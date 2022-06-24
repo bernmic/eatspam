@@ -68,7 +68,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	ic.UnreadMails = len(ids)
 	if len(ids) > 0 {
 		log.Printf("%d unread messages: %v", len(ids), ids)
-		actions := make(map[uint32]string, 0)
+		actions := make(map[uint32]checkSpamResult, 0)
 		msgs, err := ic.messagesWithId(ids)
 		if err != nil {
 			return fmt.Errorf("error fetching unread messages: %v", err)
@@ -90,7 +90,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			result := conf.overallResult(msg, spamdChan, rspamdChan)
 			if result.err == nil && result.action != spamActionNoAction {
 				log.Printf("action for message %d is %s\n", msg.SeqNum, result.action)
-				actions[msg.SeqNum] = result.action
+				actions[msg.SeqNum] = result
 			}
 		}
 		if len(actions) > 0 {
@@ -99,14 +99,15 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 				actionIds = append(actionIds, k)
 			}
 			for i := len(actionIds) - 1; i >= 0; i-- {
-				switch actions[actionIds[i]] {
+				cr := actions[actionIds[i]]
+				switch cr.action {
 				case spamActionReject:
 					err = ic.moveToSpam(actionIds[i])
 					if err != nil {
 						log.Printf("error moving spams to spam folder: %v", err)
 					}
 				case spamActionAddHeader:
-					err = ic.addSpamToHeader(actionIds[i])
+					err = ic.markSpamInHeader(cr.score, true, actionIds[i])
 					if err != nil {
 						log.Printf("error adding header to spam mails: %v", err)
 					}

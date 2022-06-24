@@ -129,17 +129,6 @@ func (ic *ImapConfiguration) moveToSpam(id ...uint32) error {
 	return ic.client.Move(seqset, ic.SpamFolder)
 }
 
-func (ic *ImapConfiguration) addSpamToHeader(id ...uint32) error {
-	msgs, err := ic.fetchMessages(reverseSeqSet(id...))
-	if err != nil {
-		return fmt.Errorf("error fetching mails: %v", err)
-	}
-	if len(msgs) > 0 {
-
-	}
-	return nil
-}
-
 func (ic *ImapConfiguration) deleteMessages(id ...uint32) error {
 	item := imap.FormatFlagsOp(imap.AddFlags, true)
 	flags := []interface{}{imap.DeletedFlag}
