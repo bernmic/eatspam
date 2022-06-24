@@ -53,7 +53,6 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 		}
 		pw := r.FormValue("password")
 		opw, err := decrypt(conf.Http.Password, conf.key)
-		log.Println(opw)
 		if err != nil || opw != pw {
 			renderUnauthorized(w, r)
 			return

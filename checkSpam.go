@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/emersion/go-imap"
 	"log"
-	"math"
 	"sort"
 )
 
@@ -84,17 +83,11 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			rspamdChan := make(chan checkSpamResult)
 			if conf.Spamd.Use {
 				go conf.Spamd.spamdCheckIfSpam(s, conf.SpamThreshold, spamdChan)
-			} else {
-				spamdChan <- checkSpamResult{score: math.MaxFloat64, action: spamActionNoAction, err: nil}
 			}
 			if conf.Rspamd.Use {
 				go conf.Rspamd.rspamdCheckIfSpam(s, rspamdChan)
-			} else {
-				rspamdChan <- checkSpamResult{score: math.MaxFloat64, action: spamActionNoAction, err: nil}
 			}
-			spamdResult := <-spamdChan
-			rspamdResult := <-rspamdChan
-			result := conf.overallResult(msg, spamdResult, rspamdResult)
+			result := conf.overallResult(msg, spamdChan, rspamdChan)
 			if result.err == nil && result.action != spamActionNoAction {
 				log.Printf("action for message %d is %s\n", msg.SeqNum, result.action)
 				actionIds[result.action] = append(actionIds[result.action], msg.SeqNum)
@@ -125,7 +118,14 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	return nil
 }
 
-func (conf *Configuration) overallResult(msg *imap.Message, spamdResult checkSpamResult, rspamdResult checkSpamResult) checkSpamResult {
+func (conf *Configuration) overallResult(msg *imap.Message, spamdChan chan checkSpamResult, rspamdChan chan checkSpamResult) checkSpamResult {
+	var spamdResult, rspamdResult checkSpamResult
+	if conf.Spamd.Use {
+		spamdResult = <-spamdChan
+	}
+	if conf.Rspamd.Use {
+		rspamdResult = <-rspamdChan
+	}
 	switch conf.Strategy {
 	case strategyAverage:
 		averageResult := checkSpamResult{
@@ -159,17 +159,21 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdResult checkSpa
 		if !conf.Spamd.Use {
 			log.Fatal("stategy spamd is set but spamd is not configured for use")
 		}
+		log.Printf("spamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, spamdResult.score, spamdResult.action)
 		return spamdResult
 	case strategyRspamd:
 		if !conf.Rspamd.Use {
 			log.Fatal("stategy rspamd is set but rspamd is not configured for use")
 		}
+		log.Printf("rspamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, rspamdResult.score, rspamdResult.action)
 		return rspamdResult
 	case strategyLowest:
 		if conf.Spamd.Use && conf.Rspamd.Use {
 			if spamdResult.score < rspamdResult.score {
+				log.Printf("spamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, spamdResult.score, spamdResult.action)
 				return spamdResult
 			}
+			log.Printf("rspamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, rspamdResult.score, rspamdResult.action)
 			return rspamdResult
 		} else if !conf.Spamd.Use && !conf.Rspamd.Use {
 			return checkSpamResult{
@@ -178,14 +182,18 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdResult checkSpa
 				err:    fmt.Errorf("spamd and rspamd are noch configured for use"),
 			}
 		} else if conf.Spamd.Use {
+			log.Printf("spamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, spamdResult.score, spamdResult.action)
 			return spamdResult
 		}
+		log.Printf("rspamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, rspamdResult.score, rspamdResult.action)
 		return rspamdResult
 	case strategyHighest:
 		if conf.Spamd.Use && conf.Rspamd.Use {
 			if spamdResult.score > rspamdResult.score {
+				log.Printf("spamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, spamdResult.score, spamdResult.action)
 				return spamdResult
 			}
+			log.Printf("rspamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, rspamdResult.score, rspamdResult.action)
 			return rspamdResult
 		} else if !conf.Spamd.Use && !conf.Rspamd.Use {
 			return checkSpamResult{
@@ -194,8 +202,10 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdResult checkSpa
 				err:    fmt.Errorf("spamd and rspamd are noch configured for use"),
 			}
 		} else if conf.Spamd.Use {
+			log.Printf("spamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, spamdResult.score, spamdResult.action)
 			return spamdResult
 		}
+		log.Printf("rspamd score for '%s' is %0.1f with action=%s\n", msg.Envelope.Subject, rspamdResult.score, rspamdResult.action)
 		return rspamdResult
 	}
 	return checkSpamResult{
