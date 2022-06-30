@@ -71,28 +71,32 @@ func TestOverallResult(t *testing.T) {
 		err:    nil,
 	}
 
+	spamdChan := make(chan checkSpamResult)
+	rspamdChan := make(chan checkSpamResult)
+	spamdChan <- spamdResult
+	rspamdChan <- rspamdResult
 	c.Strategy = strategyLowest
-	r := c.overallResult(&m, spamdResult, rspamdResult)
+	r := c.overallResult(&m, spamdChan, rspamdChan)
 	if r.score != 0.0 || r.action != spamActionNoAction {
 		t.Errorf("expecting lowest result (%0.1f, %s), got (%0.1f, %s)", 0.0, spamActionNoAction, r.score, r.action)
 	}
 	c.Strategy = strategyHighest
-	r = c.overallResult(&m, spamdResult, rspamdResult)
+	r = c.overallResult(&m, spamdChan, rspamdChan)
 	if r.score != 4.0 || r.action != spamActionAddHeader {
 		t.Errorf("expecting lowest result (%0.1f, %s), got (%0.1f, %s)", 4.0, spamActionAddHeader, r.score, r.action)
 	}
 	c.Strategy = strategySpamd
-	r = c.overallResult(&m, spamdResult, rspamdResult)
+	r = c.overallResult(&m, spamdChan, rspamdChan)
 	if r.score != 0.0 || r.action != spamActionNoAction {
 		t.Errorf("expecting lowest result (%0.1f, %s), got (%0.1f, %s)", 0.0, spamActionNoAction, r.score, r.action)
 	}
 	c.Strategy = strategyRspamd
-	r = c.overallResult(&m, spamdResult, rspamdResult)
+	r = c.overallResult(&m, spamdChan, rspamdChan)
 	if r.score != 4.0 || r.action != spamActionAddHeader {
 		t.Errorf("expecting lowest result (%0.1f, %s), got (%0.1f, %s)", 4.0, spamActionAddHeader, r.score, r.action)
 	}
 	c.Strategy = strategyAverage
-	r = c.overallResult(&m, spamdResult, rspamdResult)
+	r = c.overallResult(&m, spamdChan, rspamdChan)
 	if r.score != 2.0 || r.action != spamActionNoAction {
 		t.Errorf("expecting lowest result (%0.1f, %s), got (%0.1f, %s)", 2.0, spamActionNoAction, r.score, r.action)
 	}

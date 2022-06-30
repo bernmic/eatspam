@@ -54,7 +54,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	}
 
 	ic.Ok = true
-	mbox, err := ic.client.Select(ic.Inbox, true)
+	mbox, err := ic.client.Select(ic.Inbox, false)
 	if err != nil {
 		return fmt.Errorf("error selecting INBOX %s: %v\n", ic.Inbox, err)
 	}
