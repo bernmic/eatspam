@@ -73,6 +73,20 @@ func (ic *ImapConfiguration) lastNMessages(mbox *imap.MailboxStatus, n uint32) (
 }
 
 func (ic *ImapConfiguration) messagesWithId(ids []uint32, unread bool) ([]*imap.Message, error) {
+	msgs := make([]*imap.Message, 0)
+	for _, id := range ids {
+		seqset := new(imap.SeqSet)
+		seqset.AddNum(id)
+		msg, err := ic.fetchMessage(seqset)
+		if err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, msg)
+	}
+	return msgs, nil
+}
+
+func (ic *ImapConfiguration) messagesWithIdX(ids []uint32, unread bool) ([]*imap.Message, error) {
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(ids...)
 	msgs, err := ic.fetchMessages(seqset)
@@ -86,6 +100,20 @@ func (ic *ImapConfiguration) messagesWithId(ids []uint32, unread bool) ([]*imap.
 }
 
 func body(m *imap.Message) (string, error) {
+	b := []byte{}
+	for name, literal := range m.Body {
+		log.Tracef("%s = %v", name, literal)
+		bb, err := ioutil.ReadAll(literal)
+		if err != nil {
+			log.Errorf("error reading body literal %s: %v", name, err)
+		}
+		b = append(b, bb...)
+	}
+
+	return string(b), nil
+}
+
+func bodyX(m *imap.Message) (string, error) {
 	result := ""
 	var section imap.BodySectionName
 	r := m.GetBody(&section)
@@ -101,6 +129,16 @@ func (ic *ImapConfiguration) searchUnread() ([]uint32, error) {
 	criteria.WithoutFlags = []string{imap.SeenFlag}
 
 	return ic.client.Search(criteria)
+}
+
+func (ic *ImapConfiguration) fetchMessage(seqset *imap.SeqSet) (*imap.Message, error) {
+	log.Debugf("fetching message %v", seqset)
+	ch := make(chan *imap.Message, 1)
+	err := ic.client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchItem("BODY.PEEK[]")}, ch)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching message %v: %v", seqset, err)
+	}
+	return <-ch, nil
 }
 
 func (ic *ImapConfiguration) fetchMessages(seqset *imap.SeqSet) ([]*imap.Message, error) {
