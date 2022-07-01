@@ -4,9 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/emersion/go-imap/client"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 )
@@ -30,6 +30,7 @@ const (
 	defaultImapSpamFolder = "Spam"
 	defaultSpamMark       = "*** SPAM ***"
 	defaultStrategy       = "average"
+	defaultLogLevel       = "info"
 )
 
 const (
@@ -38,6 +39,11 @@ const (
 	strategyHighest = "highest"
 	strategySpamd   = "spamd"
 	strategyRspamd  = "rspamd"
+)
+
+var (
+	loglevel2String map[log.Level]string
+	string2Loglevel map[string]log.Level
 )
 
 type Configuration struct {
@@ -53,6 +59,8 @@ type Configuration struct {
 	KeyFile       string               `yaml:"keyFile,omitempty"`
 	Actions       map[float64]string   `yaml:"actions,omitempty"`
 	Strategy      string               `yaml:"strategy,omitempty"`
+	LogLevel      string               `yaml:"logLevel,omitempty"`
+	Version       string               `yaml:"-"`
 	encrypt       string
 	key           string
 }
@@ -89,9 +97,28 @@ type HttpConfiguration struct {
 }
 
 func New() (*Configuration, error) {
+	loglevel2String = map[log.Level]string{
+		log.PanicLevel: "panic",
+		log.FatalLevel: "fatal",
+		log.ErrorLevel: "error",
+		log.WarnLevel:  "warn",
+		log.InfoLevel:  "info",
+		log.DebugLevel: "debug",
+		log.TraceLevel: "trace",
+	}
+	string2Loglevel = map[string]log.Level{
+		"panic": log.PanicLevel,
+		"fatal": log.FatalLevel,
+		"error": log.ErrorLevel,
+		"warn":  log.WarnLevel,
+		"info":  log.InfoLevel,
+		"debug": log.DebugLevel,
+		"trace": log.TraceLevel,
+	}
+
 	// peek cli params and environment for the configFile parameter
 	cl := configLocation()
-	c := Configuration{}
+	c := Configuration{Version: Version}
 	// load and parse config file
 	configdata, err := ioutil.ReadFile(cl)
 	if err == nil {
@@ -100,7 +127,7 @@ func New() (*Configuration, error) {
 			return nil, fmt.Errorf("error unmarshalling config file: %v\n", err)
 		}
 	} else {
-		log.Printf("Config file %s not found. Use default parameters.\n", cl)
+		log.Warnf("Config file %s not found. Use default parameters.\n", cl)
 	}
 	if len(c.ImapAccounts) == 0 {
 		log.Fatalf("No imap accounts configured. Stopping here.")
@@ -131,6 +158,18 @@ func New() (*Configuration, error) {
 	}
 	// parse all given cli parameters and environment variables
 	c.parseArguments()
+	// set loglevel
+	l, ok := string2Loglevel[c.LogLevel]
+	if !ok {
+		log.Warnf("unknown loglevel '%s'. Use loglevel info instead", c.LogLevel)
+		l = log.InfoLevel
+	} else {
+		log.Infof("loglevel set to %s", c.LogLevel)
+	}
+	log.SetLevel(l)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 	return &c, nil
 }
 
@@ -151,6 +190,7 @@ func (c *Configuration) parseArguments() {
 	flag.StringVar(&cp.ConfigFile, "configFile", defaultConfigFile, "location of configuration file, default 'config/eatspam.yaml'")
 	flag.StringVar(&cp.KeyFile, "keyFile", defaultKeyFile, "location of the key file for password en-/decryption, default 'config/eatspam.key'")
 	flag.StringVar(&cp.Strategy, "strategy", defaultStrategy, "strategy for spam handling (average, lowest, highest, default 'average'")
+	flag.StringVar(&cp.LogLevel, "loglevel", defaultLogLevel, "loglevel. One of panic, fatal, error, warn, info, debug or trace. Default is info")
 
 	flag.Parse()
 
@@ -175,6 +215,7 @@ func (c *Configuration) parseArguments() {
 	c.KeyFile = stringConfig("keyFile", cp.KeyFile, "KEY_FILE", c.KeyFile)
 
 	c.Strategy = stringConfig("strategy", cp.Strategy, "STRATEGY", c.Strategy)
+	c.LogLevel = stringConfig("loglevel", cp.LogLevel, "LOGLEVEL", c.LogLevel)
 }
 
 func isFlagPassed(name string) bool {

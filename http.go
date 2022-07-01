@@ -3,8 +3,8 @@ package main
 import (
 	"embed"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"html/template"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -147,13 +147,13 @@ type IndexData struct {
 func (conf *Configuration) renderIndex(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFS(templates, templateDir+r.URL.Path, templateDir+"/navbar.html")
 	if err != nil {
-		log.Printf("Error parsing template %s: %v\n", r.URL.Path, err)
+		log.Errorf("Error parsing template %s: %v\n", r.URL.Path, err)
 		renderServerError(w, r)
 		return
 	}
 	err = t.Execute(w, IndexData{Page: "index", Configuration: conf, MessageType: lastMessageType, MessageText: lastMessageText})
 	if err != nil {
-		log.Printf("Error executing template /index.html: %v\n", err)
+		log.Errorf("error executing template /index.html: %v\n", err)
 	}
 	lastMessageType = ""
 	lastMessageText = ""
@@ -162,13 +162,13 @@ func (conf *Configuration) renderIndex(w http.ResponseWriter, r *http.Request) {
 func (conf *Configuration) renderLogin(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFS(templates, templateDir+r.URL.Path)
 	if err != nil {
-		log.Printf("Error parsing template %s: %v\n", r.URL.Path, err)
+		log.Errorf("error parsing template %s: %v\n", r.URL.Path, err)
 		renderServerError(w, r)
 		return
 	}
 	err = t.Execute(w, conf)
 	if err != nil {
-		log.Printf("Error executing template /login.html: %v\n", err)
+		log.Errorf("error executing template /login.html: %v\n", err)
 	}
 }
 
@@ -181,7 +181,7 @@ type AccountData struct {
 func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFS(templates, templateDir+r.URL.Path, templateDir+"/navbar.html")
 	if err != nil {
-		log.Printf("Error parsing template %s: %v\n", r.URL.Path, err)
+		log.Errorf("error parsing template %s: %v\n", r.URL.Path, err)
 		renderServerError(w, r)
 		return
 	}
@@ -200,7 +200,7 @@ func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request)
 			defer ia.logout()
 			m, err := ia.mailboxes()
 			if err != nil {
-				log.Printf("error getting mailbox list for %s: %v", ia.Name, err)
+				log.Errorf("error getting mailbox list for %s: %v", ia.Name, err)
 				renderServerError(w, r)
 				return
 			} else if len(m) > 0 {
@@ -246,7 +246,7 @@ func renderNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	_, err := fmt.Fprintf(w, "Could not find the page you requested: %s.", r.RequestURI)
 	if err != nil {
-		accessLog(r, http.StatusInternalServerError, "write not found")
+		accessLog(r, http.StatusNotFound, "write not found")
 	}
 }
 
@@ -254,7 +254,7 @@ func renderUnauthorized(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
 	_, err := fmt.Fprintf(w, "Unauthorized")
 	if err != nil {
-		accessLog(r, http.StatusInternalServerError, "unauthorized")
+		accessLog(r, http.StatusUnauthorized, "unauthorized")
 	}
 }
 
@@ -262,7 +262,7 @@ func renderBadRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	_, err := fmt.Fprintf(w, "Bad Request.")
 	if err != nil {
-		accessLog(r, http.StatusInternalServerError, "write bad request")
+		accessLog(r, http.StatusBadRequest, "write bad request")
 	}
 }
 
@@ -275,5 +275,12 @@ func renderServerError(w http.ResponseWriter, r *http.Request) {
 }
 
 func accessLog(r *http.Request, httpCode int, payload string) {
-	log.Printf("%s %s, %d, %s", r.Method, r.RequestURI, httpCode, payload)
+	switch httpCode {
+	case http.StatusInternalServerError, http.StatusBadRequest:
+		log.Errorf("%s %s, %d, %s", r.Method, r.RequestURI, httpCode, payload)
+	case http.StatusNotFound, http.StatusUnauthorized:
+		log.Warnf("%s %s, %d, %s", r.Method, r.RequestURI, httpCode, payload)
+	default:
+		log.Infof("%s %s, %d, %s", r.Method, r.RequestURI, httpCode, payload)
+	}
 }

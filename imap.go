@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"sort"
 	"strings"
 )
@@ -43,7 +43,7 @@ func (ic *ImapConfiguration) login(key string) error {
 	}
 	if err := ic.client.Login(ic.Username, pw); err != nil {
 		if err == client.ErrAlreadyLoggedIn {
-			log.Println("warning: already logged in")
+			log.Warnf("warning: already logged in")
 			return nil
 		}
 		return fmt.Errorf("error login to %s: %v", ic.Host, err)
@@ -54,7 +54,7 @@ func (ic *ImapConfiguration) login(key string) error {
 func (ic *ImapConfiguration) logout() {
 	err := ic.client.Logout()
 	if err != nil {
-		log.Printf("error logging out: %v", err)
+		log.Errorf("error logging out: %v", err)
 	}
 }
 
@@ -72,10 +72,17 @@ func (ic *ImapConfiguration) lastNMessages(mbox *imap.MailboxStatus, n uint32) (
 	return ic.fetchMessages(seqset)
 }
 
-func (ic *ImapConfiguration) messagesWithId(ids []uint32) ([]*imap.Message, error) {
+func (ic *ImapConfiguration) messagesWithId(ids []uint32, unread bool) ([]*imap.Message, error) {
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(ids...)
-	return ic.fetchMessages(seqset)
+	msgs, err := ic.fetchMessages(seqset)
+	if err != nil {
+		return nil, err
+	}
+	if unread {
+		err = ic.setMessagesUnread(seqset)
+	}
+	return msgs, err
 }
 
 func body(m *imap.Message) (string, error) {
@@ -97,6 +104,7 @@ func (ic *ImapConfiguration) searchUnread() ([]uint32, error) {
 }
 
 func (ic *ImapConfiguration) fetchMessages(seqset *imap.SeqSet) ([]*imap.Message, error) {
+	log.Debugf("fetching messages %v", seqset)
 	msgs := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	bs := &imap.BodySectionName{}
@@ -106,16 +114,23 @@ func (ic *ImapConfiguration) fetchMessages(seqset *imap.SeqSet) ([]*imap.Message
 
 	result := make([]*imap.Message, 0)
 	for msg := range msgs {
-		log.Println("* " + msg.Envelope.Subject)
+		log.Debug("* " + msg.Envelope.Subject)
 		result = append(result, msg)
 	}
 
 	if err := <-done; err != nil {
-		return nil, fmt.Errorf("error reading lastNMessages: %v", err)
+		return nil, fmt.Errorf("error fetching messages: %v", err)
 	}
 
-	log.Println("Done!")
+	log.Debug("Done!")
 	return result, nil
+}
+
+func (ic *ImapConfiguration) setMessagesUnread(seqset *imap.SeqSet) error {
+	log.Debugf("set messages %v to unread", seqset)
+	item := imap.FormatFlagsOp(imap.RemoveFlags, true)
+	flags := []interface{}{imap.SeenFlag}
+	return ic.client.Store(seqset, item, flags, nil)
 }
 
 func (ic *ImapConfiguration) moveToSpam(id ...uint32) error {
@@ -149,7 +164,7 @@ func (ic *ImapConfiguration) markSpamInSubject(spamPrefix string, id uint32) err
 		return fmt.Errorf("error fetching mail: %v", err)
 	}
 	if len(msgs) != 1 {
-		return fmt.Errorf("exprect 1 mail got %d", len(msgs))
+		return fmt.Errorf("expect 1 mail got %d", len(msgs))
 	}
 	dt := msgs[0].Envelope.Date
 	s, err := body(msgs[0])
@@ -164,7 +179,15 @@ func (ic *ImapConfiguration) markSpamInSubject(spamPrefix string, id uint32) err
 	if err != nil {
 		return fmt.Errorf("error deleting message: %v", err)
 	}
-	s = strings.Replace(s, "Subject: ", fmt.Sprintf("Subject: %s ", spamPrefix), 1)
+
+	if strings.Contains(s, "Subject: ") {
+		s = strings.Replace(s, "Subject: ", fmt.Sprintf("Subject: %s ", spamPrefix), 1)
+	} else {
+		if strings.Contains(s, "Subject:\n") {
+			s = strings.Replace(s, "Subject:\n", fmt.Sprintf("Subject: %s\n", spamPrefix), 1)
+		}
+	}
+
 	b := bytes.NewBufferString(s)
 	flags := []string{}
 	err = ic.client.Append(ic.Inbox, flags, dt, b)

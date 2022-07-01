@@ -7,8 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/go-co-op/gocron"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -28,7 +28,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("error writing key file: %v", err)
 		}
-		log.Println("New key was created. To encrypt password use `eatspam --encrypt <password>`")
+		log.Info("New key was created. To encrypt password use `eatspam --encrypt <password>`")
 	}
 	conf.key = string(b)
 	if conf.encrypt != "" {
@@ -39,19 +39,20 @@ func main() {
 		fmt.Println(s)
 		os.Exit(0)
 	}
+	log.Infof("eatspam v%s", conf.Version)
 	d, _ := time.ParseDuration(conf.Interval)
 	if conf.Daemon {
-		log.Println("Start eatspam in daemon mode")
-		log.Printf("Interval is %0.2f seconds\n", d.Seconds())
+		log.Info("Start eatspam in daemon mode")
+		log.Infof("Interval is %0.2f seconds", d.Seconds())
 	} else {
-		log.Println("Start eatspam in one time mode")
+		log.Info("Start eatspam in one time mode")
 	}
-	log.Printf("using strategy %s with thresholds %v\n", conf.Strategy, conf.Actions)
+	log.Infof("using strategy %s with thresholds %v\n", conf.Strategy, conf.Actions)
 	if conf.Spamd.Use {
-		log.Printf("use spamd at '%s' with port %d", conf.Spamd.Host, conf.Spamd.Port)
+		log.Infof("use spamd at '%s' with port %d", conf.Spamd.Host, conf.Spamd.Port)
 	}
 	if conf.Rspamd.Use {
-		log.Printf("use rspamd at '%s' with port %d", conf.Rspamd.Host, conf.Rspamd.Port)
+		log.Infof("use rspamd at '%s' with port %d", conf.Rspamd.Host, conf.Rspamd.Port)
 	}
 	if conf.Daemon {
 		conf.startCron()
@@ -69,22 +70,22 @@ func (conf *Configuration) startCron() {
 	frequency := conf.Interval
 	value, unit, err := parseFrequency(frequency)
 	if err != nil {
-		log.Printf("Error starting sync cron job: %v", err)
-		log.Printf("Start sync job every %d %s", 1, "days")
+		log.Errorf("error starting sync cron job: %v", err)
+		log.Infof("Start sync job every %d %s", 1, "days")
 		_, err = s.Every(1).Days().Do(conf.cron)
 	} else {
 		switch unit {
 		case "s":
-			log.Printf("Start sync job every %d %s", value, "seconds")
+			log.Infof("Start sync job every %d %s", value, "seconds")
 			_, err = s.Every(value).Seconds().Do(conf.cron)
 		case "m":
-			log.Printf("Start sync job every %d %s", value, "minutes")
+			log.Infof("Start sync job every %d %s", value, "minutes")
 			_, err = s.Every(value).Minutes().Do(conf.cron)
 		case "h":
-			log.Printf("Start sync job every %d %s", value, "hours")
+			log.Infof("Start sync job every %d %s", value, "hours")
 			_, err = s.Every(value).Hours().Do(conf.cron)
 		case "d":
-			log.Printf("Start sync job every %d %s", value, "days")
+			log.Infof("Start sync job every %d %s", value, "days")
 			_, err = s.Every(value).Days().Do(conf.cron)
 		}
 	}
@@ -97,7 +98,7 @@ func (conf *Configuration) startCron() {
 func (conf *Configuration) cron() {
 	err := conf.spamChecker()
 	if err != nil {
-		log.Printf("error checking spam: %v", err)
+		log.Errorf("error checking spam: %v", err)
 	}
 }
 
