@@ -31,6 +31,7 @@ const (
 	defaultSpamMark       = "*** SPAM ***"
 	defaultStrategy       = "average"
 	defaultLogLevel       = "info"
+	defaultCollectMetrics = true
 )
 
 const (
@@ -47,22 +48,23 @@ var (
 )
 
 type Configuration struct {
-	ImapAccounts  []*ImapConfiguration `yaml:"imapAccounts,omitempty"`
-	Spamd         SpamdConfiguration   `yaml:"spamd,omitempty"`
-	Rspamd        RspamdConfiguration  `yaml:"rspamd,omitempty"`
-	Http          HttpConfiguration    `yaml:"http,omitempty"`
-	SpamThreshold float64              `yaml:"spamThreshold,omitempty"`
-	Daemon        bool                 `yaml:"daemon,omitempty"`
-	Interval      string               `yaml:"interval,omitempty"`
-	SpamPrefix    string               `yaml:"spamMark,omitempty"`
-	ConfigFile    string               `yaml:"-"`
-	KeyFile       string               `yaml:"keyFile,omitempty"`
-	Actions       map[float64]string   `yaml:"actions,omitempty"`
-	Strategy      string               `yaml:"strategy,omitempty"`
-	LogLevel      string               `yaml:"logLevel,omitempty"`
-	Version       string               `yaml:"-"`
-	encrypt       string
-	key           string
+	ImapAccounts   []*ImapConfiguration `yaml:"imapAccounts,omitempty"`
+	Spamd          SpamdConfiguration   `yaml:"spamd,omitempty"`
+	Rspamd         RspamdConfiguration  `yaml:"rspamd,omitempty"`
+	Http           HttpConfiguration    `yaml:"http,omitempty"`
+	SpamThreshold  float64              `yaml:"spamThreshold,omitempty"`
+	Daemon         bool                 `yaml:"daemon,omitempty"`
+	Interval       string               `yaml:"interval,omitempty"`
+	SpamPrefix     string               `yaml:"spamMark,omitempty"`
+	ConfigFile     string               `yaml:"-"`
+	KeyFile        string               `yaml:"keyFile,omitempty"`
+	Actions        map[float64]string   `yaml:"actions,omitempty"`
+	Strategy       string               `yaml:"strategy,omitempty"`
+	LogLevel       string               `yaml:"logLevel,omitempty"`
+	Version        string               `yaml:"-"`
+	CollectMetrics bool                 `yaml:"collectMetrics,omitempty"`
+	encrypt        string
+	key            string
 }
 
 type ImapConfiguration struct {
@@ -124,10 +126,10 @@ func New() (*Configuration, error) {
 	if err == nil {
 		err = yaml.Unmarshal([]byte(configdata), &c)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshalling config file: %v\n", err)
+			return nil, fmt.Errorf("error unmarshalling config file: %v", err)
 		}
 	} else {
-		log.Warnf("Config file %s not found. Use default parameters.\n", cl)
+		log.Warnf("Config file %s not found. Use default parameters.", cl)
 	}
 	if len(c.ImapAccounts) == 0 {
 		log.Fatalf("No imap accounts configured. Stopping here.")
@@ -191,6 +193,7 @@ func (c *Configuration) parseArguments() {
 	flag.StringVar(&cp.KeyFile, "keyFile", defaultKeyFile, "location of the key file for password en-/decryption, default 'config/eatspam.key'")
 	flag.StringVar(&cp.Strategy, "strategy", defaultStrategy, "strategy for spam handling (average, lowest, highest, default 'average'")
 	flag.StringVar(&cp.LogLevel, "loglevel", defaultLogLevel, "loglevel. One of panic, fatal, error, warn, info, debug or trace. Default is info")
+	flag.BoolVar(&cp.CollectMetrics, "collectMetrics", defaultCollectMetrics, "collect metrics for Prometheus, default true")
 
 	flag.Parse()
 
@@ -216,6 +219,8 @@ func (c *Configuration) parseArguments() {
 
 	c.Strategy = stringConfig("strategy", cp.Strategy, "STRATEGY", c.Strategy)
 	c.LogLevel = stringConfig("loglevel", cp.LogLevel, "LOGLEVEL", c.LogLevel)
+
+	c.CollectMetrics = boolConfig("collectMetrics", cp.CollectMetrics, "COLLECT_METRICS", c.CollectMetrics)
 }
 
 func isFlagPassed(name string) bool {

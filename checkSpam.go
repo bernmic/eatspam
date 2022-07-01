@@ -26,14 +26,14 @@ func (conf *Configuration) spamChecker() error {
 	for _, ic := range conf.ImapAccounts {
 		err := ic.checkSpam(conf)
 		if err != nil {
-			log.Errorf("error checking mail on %s: %v\n", ic.Host, err)
+			log.Errorf("error checking mail on %s: %v", ic.Host, err)
 		}
 	}
 	return nil
 }
 
 func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
-	log.Infof("start checking mail for account %s on host %s\n", ic.Name, ic.Host)
+	log.Infof("start checking mail for account %s on host %s", ic.Name, ic.Host)
 	err := ic.connect()
 	if err != nil {
 		return fmt.Errorf("error: imap connect to %s for account %s failed: %v", ic.Host, ic.Name, err)
@@ -56,7 +56,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	ic.Ok = true
 	mbox, err := ic.client.Select(ic.Inbox, false)
 	if err != nil {
-		return fmt.Errorf("error selecting INBOX %s for fetching: %v\n", ic.Inbox, err)
+		return fmt.Errorf("error selecting INBOX %s for fetching: %v", ic.Inbox, err)
 	}
 	if mbox.Messages == 0 {
 		return nil
@@ -76,7 +76,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 		for _, msg := range msgs {
 			s, err := body(msg)
 			if err != nil {
-				log.Errorf("error getting mail body: %v\n", err)
+				log.Errorf("error getting mail body: %v", err)
 				continue
 			}
 			spamdChan := make(chan checkSpamResult)
@@ -89,11 +89,12 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			}
 			result := conf.overallResult(msg, spamdChan, rspamdChan)
 			if result.err == nil {
+				conf.pushAction(result.action)
 				if result.action != spamActionNoAction {
-					log.Infof("action for message %d is %s\n", msg.SeqNum, result.action)
+					log.Infof("action for message %d is %s", msg.SeqNum, result.action)
 					actions[msg.SeqNum] = result
 				} else {
-					log.Debugf("action for message %d is %s\n", msg.SeqNum, result.action)
+					log.Debugf("action for message %d is %s", msg.SeqNum, result.action)
 				}
 			}
 		}
@@ -124,7 +125,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			}
 		}
 	}
-	log.Infof("end checking mail for account %s on host %s\n", ic.Name, ic.Host)
+	log.Infof("end checking mail for account %s on host %s", ic.Name, ic.Host)
 	return nil
 }
 
@@ -147,14 +148,14 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdChan chan check
 			averageResult.err = spamdResult.err
 			log.Errorf("spamd error: %v", spamdResult.err)
 		} else if conf.Spamd.Use {
-			log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
+			log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
 			averageResult = spamdResult
 		}
 		if rspamdResult.err != nil {
 			averageResult.err = rspamdResult.err
 			log.Errorf("rspamd error: %v", rspamdResult.err)
 		} else if conf.Rspamd.Use {
-			log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
+			log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
 			if conf.Spamd.Use {
 				averageResult.score = (averageResult.score + rspamdResult.score) / 2
 			} else {
@@ -169,21 +170,21 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdChan chan check
 		if !conf.Spamd.Use {
 			log.Fatal("stategy spamd is set but spamd is not configured for use")
 		}
-		log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
+		log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
 		return spamdResult
 	case strategyRspamd:
 		if !conf.Rspamd.Use {
 			log.Fatal("stategy rspamd is set but rspamd is not configured for use")
 		}
-		log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
+		log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
 		return rspamdResult
 	case strategyLowest:
 		if conf.Spamd.Use && conf.Rspamd.Use {
 			if spamdResult.score < rspamdResult.score {
-				log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
+				log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
 				return spamdResult
 			}
-			log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
+			log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
 			return rspamdResult
 		} else if !conf.Spamd.Use && !conf.Rspamd.Use {
 			return checkSpamResult{
@@ -192,18 +193,18 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdChan chan check
 				err:    fmt.Errorf("spamd and rspamd are noch configured for use"),
 			}
 		} else if conf.Spamd.Use {
-			log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
+			log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
 			return spamdResult
 		}
-		log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
+		log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
 		return rspamdResult
 	case strategyHighest:
 		if conf.Spamd.Use && conf.Rspamd.Use {
 			if spamdResult.score > rspamdResult.score {
-				log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
+				log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
 				return spamdResult
 			}
-			log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
+			log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
 			return rspamdResult
 		} else if !conf.Spamd.Use && !conf.Rspamd.Use {
 			return checkSpamResult{
@@ -212,10 +213,10 @@ func (conf *Configuration) overallResult(msg *imap.Message, spamdChan chan check
 				err:    fmt.Errorf("spamd and rspamd are noch configured for use"),
 			}
 		} else if conf.Spamd.Use {
-			log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
+			log.Debugf("spamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, spamdResult.score, spamdResult.action)
 			return spamdResult
 		}
-		log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s\n", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
+		log.Debugf("rspamd score for '%s'(%d) is %0.1f with action=%s", msg.Envelope.Subject, msg.SeqNum, rspamdResult.score, rspamdResult.action)
 		return rspamdResult
 	}
 	return checkSpamResult{

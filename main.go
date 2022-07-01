@@ -34,7 +34,7 @@ func main() {
 	if conf.encrypt != "" {
 		s, err := encrypt(conf.encrypt, conf.key)
 		if err != nil {
-			log.Fatalf("error encrypting string: %v\n", err)
+			log.Fatalf("error encrypting string: %v", err)
 		}
 		fmt.Println(s)
 		os.Exit(0)
@@ -47,7 +47,7 @@ func main() {
 	} else {
 		log.Info("Start eatspam in one time mode")
 	}
-	log.Infof("using strategy %s with thresholds %v\n", conf.Strategy, conf.Actions)
+	log.Infof("using strategy %s with thresholds %v", conf.Strategy, conf.Actions)
 	if conf.Spamd.Use {
 		log.Infof("use spamd at '%s' with port %d", conf.Spamd.Host, conf.Spamd.Port)
 	}
@@ -55,6 +55,7 @@ func main() {
 		log.Infof("use rspamd at '%s' with port %d", conf.Rspamd.Host, conf.Rspamd.Port)
 	}
 	if conf.Daemon {
+		conf.initMetrics()
 		conf.startCron()
 		conf.startHttpListener()
 	} else {

@@ -33,3 +33,4 @@ strategy: average
 http:
   port: 8080
   password: <encrypted web password>
+collectMetrics: true

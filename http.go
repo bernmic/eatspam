@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"html/template"
 	"net/http"
@@ -32,12 +33,16 @@ var assets embed.FS
 
 func (conf *Configuration) startHttpListener() {
 	http.HandleFunc("/", conf.handlerIndex)
+	if conf.CollectMetrics {
+		http.Handle("/metrics", promhttp.Handler())
+	}
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%04d", conf.Http.Port), nil))
 }
 
 func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "" || r.RequestURI == "/" {
 		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
+		conf.pushRequests(r, http.StatusMovedPermanently)
 	} else if r.RequestURI == "/logout" {
 		c := http.Cookie{
 			Name:   cookieLoggedIn,
@@ -46,6 +51,7 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 		}
 		http.SetCookie(w, &c)
 		http.Redirect(w, r, "/login.html", http.StatusMovedPermanently)
+		conf.pushRequests(r, http.StatusMovedPermanently)
 	} else if r.RequestURI == "/login" && r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
@@ -54,12 +60,12 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 		pw := r.FormValue("password")
 		opw, err := decrypt(conf.Http.Password, conf.key)
 		if err != nil || opw != pw {
-			renderUnauthorized(w, r)
+			conf.renderUnauthorized(w, r)
 			return
 		}
 		secret, err := encrypt(secretPhrase, conf.key)
 		if err != nil {
-			renderServerError(w, r)
+			conf.renderServerError(w, r)
 			return
 		}
 		c := http.Cookie{
@@ -69,6 +75,7 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 		}
 		http.SetCookie(w, &c)
 		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
+		conf.pushRequests(r, http.StatusMovedPermanently)
 
 	} else if f, err := templates.Open(templateDir + r.URL.Path); err == nil {
 		f.Close()
@@ -77,7 +84,7 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 		f.Close()
 		conf.serveFile(w, r)
 	} else {
-		renderNotFound(w, r)
+		conf.renderNotFound(w, r)
 	}
 }
 
@@ -103,7 +110,7 @@ func (conf *Configuration) serveFile(w http.ResponseWriter, r *http.Request) {
 	data, err := assets.ReadFile(assetsDir + r.RequestURI)
 	if err != nil {
 		accessLog(r, http.StatusInternalServerError, err.Error())
-		renderServerError(w, r)
+		conf.renderServerError(w, r)
 		return
 	}
 	accessLog(r, 200, "")
@@ -134,6 +141,9 @@ func (conf *Configuration) serveFile(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(data)
 	if err != nil {
 		accessLog(r, http.StatusInternalServerError, "write data")
+		conf.pushRequests(r, http.StatusInternalServerError)
+	} else {
+		conf.pushRequests(r, http.StatusOK)
 	}
 }
 
@@ -147,13 +157,16 @@ type IndexData struct {
 func (conf *Configuration) renderIndex(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFS(templates, templateDir+r.URL.Path, templateDir+"/navbar.html")
 	if err != nil {
-		log.Errorf("Error parsing template %s: %v\n", r.URL.Path, err)
-		renderServerError(w, r)
+		log.Errorf("Error parsing template %s: %v", r.URL.Path, err)
+		conf.renderServerError(w, r)
 		return
 	}
 	err = t.Execute(w, IndexData{Page: "index", Configuration: conf, MessageType: lastMessageType, MessageText: lastMessageText})
 	if err != nil {
-		log.Errorf("error executing template /index.html: %v\n", err)
+		log.Errorf("error executing template /index.html: %v", err)
+		conf.renderServerError(w, r)
+	} else {
+		conf.pushRequests(r, http.StatusOK)
 	}
 	lastMessageType = ""
 	lastMessageText = ""
@@ -162,13 +175,16 @@ func (conf *Configuration) renderIndex(w http.ResponseWriter, r *http.Request) {
 func (conf *Configuration) renderLogin(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFS(templates, templateDir+r.URL.Path)
 	if err != nil {
-		log.Errorf("error parsing template %s: %v\n", r.URL.Path, err)
-		renderServerError(w, r)
+		log.Errorf("error parsing template %s: %v", r.URL.Path, err)
+		conf.renderServerError(w, r)
 		return
 	}
 	err = t.Execute(w, conf)
 	if err != nil {
-		log.Errorf("error executing template /login.html: %v\n", err)
+		log.Errorf("error executing template /login.html: %v", err)
+		conf.renderServerError(w, r)
+	} else {
+		conf.pushRequests(r, http.StatusOK)
 	}
 }
 
@@ -181,8 +197,8 @@ type AccountData struct {
 func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFS(templates, templateDir+r.URL.Path, templateDir+"/navbar.html")
 	if err != nil {
-		log.Errorf("error parsing template %s: %v\n", r.URL.Path, err)
-		renderServerError(w, r)
+		log.Errorf("error parsing template %s: %v", r.URL.Path, err)
+		conf.renderServerError(w, r)
 		return
 	}
 	a := r.URL.Query().Get("a")
@@ -194,14 +210,14 @@ func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request)
 			}
 			err = ia.login(conf.key)
 			if err != nil {
-				renderServerError(w, r)
+				conf.renderServerError(w, r)
 				return
 			}
 			defer ia.logout()
 			m, err := ia.mailboxes()
 			if err != nil {
 				log.Errorf("error getting mailbox list for %s: %v", ia.Name, err)
-				renderServerError(w, r)
+				conf.renderServerError(w, r)
 				return
 			} else if len(m) > 0 {
 				mbs := make([]string, 0)
@@ -221,6 +237,7 @@ func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request)
 	lastMessageText = fmt.Sprintf("IMAP account '%s' not found", a)
 	lastMessageType = "danger"
 	http.Redirect(w, r, "index.html", http.StatusFound)
+	conf.pushRequests(r, http.StatusFound)
 	//renderNotFound(w, r)
 }
 
@@ -239,39 +256,44 @@ func (conf *Configuration) checkLoggedIn(w http.ResponseWriter, r *http.Request)
 	}
 	http.SetCookie(w, &c)
 	http.Redirect(w, r, "/login.html", http.StatusFound)
+	conf.pushRequests(r, http.StatusNotFound)
 	return false
 }
 
-func renderNotFound(w http.ResponseWriter, r *http.Request) {
+func (conf *Configuration) renderNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	_, err := fmt.Fprintf(w, "Could not find the page you requested: %s.", r.RequestURI)
 	if err != nil {
 		accessLog(r, http.StatusNotFound, "write not found")
 	}
+	conf.pushRequests(r, http.StatusNotFound)
 }
 
-func renderUnauthorized(w http.ResponseWriter, r *http.Request) {
+func (conf *Configuration) renderUnauthorized(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
 	_, err := fmt.Fprintf(w, "Unauthorized")
 	if err != nil {
 		accessLog(r, http.StatusUnauthorized, "unauthorized")
 	}
+	conf.pushRequests(r, http.StatusUnauthorized)
 }
 
-func renderBadRequest(w http.ResponseWriter, r *http.Request) {
+func (conf *Configuration) renderBadRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	_, err := fmt.Fprintf(w, "Bad Request.")
 	if err != nil {
 		accessLog(r, http.StatusBadRequest, "write bad request")
 	}
+	conf.pushRequests(r, http.StatusBadRequest)
 }
 
-func renderServerError(w http.ResponseWriter, r *http.Request) {
+func (conf *Configuration) renderServerError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusInternalServerError)
 	_, err := fmt.Fprintf(w, "Internal Server Error: %s.", r.RequestURI)
 	if err != nil {
 		accessLog(r, http.StatusInternalServerError, "write internal server error")
 	}
+	conf.pushRequests(r, http.StatusInternalServerError)
 }
 
 func accessLog(r *http.Request, httpCode int, payload string) {
