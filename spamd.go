@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (conf *SpamdConfiguration) spamdCheckIfSpam(s string, threshold float64, result chan checkSpamResult) {
+func (conf *SpamdConfiguration) spamdCheckIfSpam(s string, actions map[float64]string, result chan checkSpamResult) {
 	c := spamc.New(fmt.Sprintf("%s:%d", conf.Host, conf.Port), &net.Dialer{
 		Timeout: 20 * time.Second,
 	})
@@ -23,8 +23,10 @@ func (conf *SpamdConfiguration) spamdCheckIfSpam(s string, threshold float64, re
 		result <- checkSpamResult{score: 0.0, action: spamActionNoAction, err: err}
 	} else {
 		a := spamActionNoAction
-		if check.Score >= threshold {
-			a = spamActionReject
+		for k, v := range actions {
+			if check.Score >= k {
+				a = v
+			}
 		}
 		result <- checkSpamResult{score: check.Score, action: a, err: nil}
 	}

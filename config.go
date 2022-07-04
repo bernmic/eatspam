@@ -52,7 +52,6 @@ type Configuration struct {
 	Spamd          SpamdConfiguration   `yaml:"spamd,omitempty"`
 	Rspamd         RspamdConfiguration  `yaml:"rspamd,omitempty"`
 	Http           HttpConfiguration    `yaml:"http,omitempty"`
-	SpamThreshold  float64              `yaml:"spamThreshold,omitempty"`
 	Daemon         bool                 `yaml:"daemon,omitempty"`
 	Interval       string               `yaml:"interval,omitempty"`
 	SpamPrefix     string               `yaml:"spamMark,omitempty"`
@@ -183,7 +182,6 @@ func (c *Configuration) parseArguments() {
 	flag.BoolVar(&cp.Rspamd.Use, "rspamdUse", defaultRspamdUse, "use rspamd, default true")
 	flag.StringVar(&cp.Rspamd.Host, "rspamdHost", defaultRspamdHost, "rspamd host name, default localhost")
 	flag.IntVar(&cp.Rspamd.Port, "rspamdPort", defaultRspamdPort, "Port of the rspamd server, default 11333")
-	flag.Float64Var(&cp.SpamThreshold, "spamThreshold", defaultSpamMoveScore, "score to move to spam folder, default 5.0")
 	flag.StringVar(&cp.Interval, "interval", defaultInterval, "interval for checking new mails, default 300s")
 	flag.BoolVar(&cp.Daemon, "daemon", defaultDaemon, "start in daemon mode, default false")
 	flag.IntVar(&cp.Http.Port, "httpPort", defaultHttpPort, "Port for the WebUI, default 8080")
@@ -205,8 +203,6 @@ func (c *Configuration) parseArguments() {
 	c.Rspamd.Use = boolConfig("rspamdUse", cp.Rspamd.Use, "RSPAMD_USE", c.Rspamd.Use)
 	c.Rspamd.Host = stringConfig("rspamdHold", cp.Rspamd.Host, "RSPAMD_HOST", c.Rspamd.Host)
 	c.Rspamd.Port = intConfig("rspamdPort", cp.Rspamd.Port, "RSPAMD_PORT", c.Rspamd.Port)
-
-	c.SpamThreshold = floatConfig("spamThreshold", cp.SpamThreshold, "SPAM_THRESHOLD", c.SpamThreshold)
 
 	c.Interval = stringConfig("interval", cp.Interval, "INTERVAL", c.Interval)
 

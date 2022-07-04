@@ -82,7 +82,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			spamdChan := make(chan checkSpamResult)
 			rspamdChan := make(chan checkSpamResult)
 			if conf.Spamd.Use {
-				go conf.Spamd.spamdCheckIfSpam(s, conf.SpamThreshold, spamdChan)
+				go conf.Spamd.spamdCheckIfSpam(s, conf.Actions, spamdChan)
 			}
 			if conf.Rspamd.Use {
 				go conf.Rspamd.rspamdCheckIfSpam(s, rspamdChan)

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 	"testing"
 )
 
@@ -32,7 +33,6 @@ func setup() (*Configuration, error) {
 	}
 	c.key = string(b)
 	c.SpamPrefix = "*** SPAM ***"
-	c.SpamThreshold = 5.0
 	return &c, nil
 }
 
@@ -185,5 +185,36 @@ func TestMarkHeader(t *testing.T) {
 	err = ic.markSpamInHeader(6.0, true, mbox.Messages)
 	if err != nil {
 		t.Errorf("error mark message: %v", err)
+	}
+}
+
+func TestReplace(t *testing.T) {
+	mail1 := `
+Subject: bla
+X-Spam-Flag: NO
+`
+
+	mail2 := `
+Subject: bla
+X-Spam-Flag: YES
+`
+
+	mail3 := `
+Subject: bla
+X-Spam-Flag: OUI
+`
+
+	re := regexp.MustCompile("(?m)^X-Spam-Flag: [NY][OE][S]*$")
+	b := re.MatchString(mail1)
+	if !b {
+		t.Errorf("mail1 did not match")
+	}
+	b = re.MatchString(mail2)
+	if !b {
+		t.Errorf("mail2 did not match")
+	}
+	b = re.MatchString(mail3)
+	if b {
+		t.Errorf("mail3 did match")
 	}
 }

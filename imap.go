@@ -8,6 +8,7 @@ import (
 	"github.com/emersion/go-imap/client"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -86,42 +87,18 @@ func (ic *ImapConfiguration) messagesWithId(ids []uint32, unread bool) ([]*imap.
 	return msgs, nil
 }
 
-func (ic *ImapConfiguration) messagesWithIdX(ids []uint32, unread bool) ([]*imap.Message, error) {
-	seqset := new(imap.SeqSet)
-	seqset.AddNum(ids...)
-	msgs, err := ic.fetchMessages(seqset)
-	if err != nil {
-		return nil, err
-	}
-	if unread {
-		err = ic.setMessagesUnread(seqset)
-	}
-	return msgs, err
-}
-
 func body(m *imap.Message) (string, error) {
 	b := []byte{}
 	for name, literal := range m.Body {
-		log.Tracef("%s = %v", name, literal)
+		log.Tracef("%v = %v", name, literal)
 		bb, err := ioutil.ReadAll(literal)
 		if err != nil {
-			log.Errorf("error reading body literal %s: %v", name, err)
+			log.Errorf("error reading body literal %v: %v", name, err)
 		}
 		b = append(b, bb...)
 	}
 
 	return string(b), nil
-}
-
-func bodyX(m *imap.Message) (string, error) {
-	result := ""
-	var section imap.BodySectionName
-	r := m.GetBody(&section)
-	if r == nil {
-		return result, fmt.Errorf("no body in mail")
-	}
-	b, err := ioutil.ReadAll(r)
-	return string(b), err
 }
 
 func (ic *ImapConfiguration) searchUnread() ([]uint32, error) {
@@ -145,9 +122,8 @@ func (ic *ImapConfiguration) fetchMessages(seqset *imap.SeqSet) ([]*imap.Message
 	log.Debugf("fetching messages %v", seqset)
 	msgs := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
-	bs := &imap.BodySectionName{}
 	go func() {
-		done <- ic.client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, bs.FetchItem()}, msgs)
+		done <- ic.client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchItem("BODY.PEEK[]")}, msgs)
 	}()
 
 	result := make([]*imap.Message, 0)
@@ -235,6 +211,8 @@ func (ic *ImapConfiguration) markSpamInSubject(spamPrefix string, id uint32) err
 	return nil
 }
 
+var regexpSpamHeader = regexp.MustCompile("(?m)^X-Spam-Flag: [NY][OE][S]*$")
+
 func (ic *ImapConfiguration) markSpamInHeader(spamScore float64, isSpam bool, id uint32) error {
 	msgs, err := ic.fetchMessages(reverseSeqSet(id))
 	if err != nil {
@@ -248,23 +226,36 @@ func (ic *ImapConfiguration) markSpamInHeader(spamScore float64, isSpam bool, id
 	if err != nil {
 		return fmt.Errorf("error getting mails body: %v", err)
 	}
-	if strings.Contains(s, "X-Spam-Flag:") {
-		// has already the header. stopping here
-		return nil
+	if regexpSpamHeader.MatchString(s) {
+		// Remove previous spam-flag
+		regexpSpamHeader.ReplaceAllString(s, "")
 	}
 	err = ic.deleteMessages(id)
 	if err != nil {
 		return fmt.Errorf("error deleting message: %v", err)
 	}
 	var b bytes.Buffer
-	b.WriteString(fmt.Sprintf("X-Spam-Flag: %t\r\n", isSpam))
+	b.WriteString(fmt.Sprintf("X-Spam-Flag: %s\r\n", yesNo(isSpam)))
 	b.WriteString(fmt.Sprintf("X-Spam-Score: %0.3f\r\n", spamScore))
 	b.WriteString(fmt.Sprintf("X-Spam-Level: %s\r\n", strings.Repeat("*", int(spamScore))))
+	b.WriteString(fmt.Sprintf("X-Spam-Bar: %s\r\n", strings.Repeat("+", int(spamScore))))
+	b.WriteString(fmt.Sprintf("X-Spam-Status: %s, score=%0.1f\r\n", yesNoCap(isSpam), spamScore))
 	b.WriteString(s)
 	flags := []string{}
 	err = ic.client.Append(ic.Inbox, flags, dt, &b)
 	if err != nil {
 		return fmt.Errorf("error writing mail copy to server: %v", err)
+	}
+	return nil
+}
+
+const eatspamSeenFlag = "$EatspamSeen"
+
+func (ic *ImapConfiguration) markAsEatspamSeen(id uint32) error {
+	item := imap.FormatFlagsOp(imap.AddFlags, true)
+	flags := []interface{}{eatspamSeenFlag}
+	if err := ic.client.Store(reverseSeqSet(id), item, flags, nil); err != nil {
+		return fmt.Errorf("error adding flag to mail: %v", err)
 	}
 	return nil
 }
@@ -278,4 +269,18 @@ func reverseSeqSet(id ...uint32) *imap.SeqSet {
 		seqset.AddNum(i)
 	}
 	return seqset
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "YES"
+	}
+	return "NO"
+}
+
+func yesNoCap(b bool) string {
+	if b {
+		return "Yes"
+	}
+	return "No"
 }
