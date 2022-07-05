@@ -27,8 +27,6 @@ Usage of eatspam:
         use rspamd, default true (default true)
   -spamMark string
         subject prefix for spam mails, default '*** SPAM ***' (default "*** SPAM ***")
-  -spamThreshold float
-        score to move to spam folder, default 5.0 (default 5)
   -spamdHost string
         spamd host name, default localhost (default "127.0.0.1")
   -spamdPort int
