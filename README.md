@@ -7,34 +7,40 @@ If the Score is higher than the configured threshold, an action like `move to sp
 ```
 # eatspam --help
 Usage of eatspam:
+  -collectMetrics
+        collect metrics for Prometheus, default true (default true)
   -configFile string
-        location of configuration file, default 'config/eatspam.yaml' (default "config/eatspam.yaml")
+        location of configuration file (default "config/eatspam.yaml")
   -daemon
         start in daemon mode, default false
   -encrypt string
         password to encrypt with the internal key
+  -httpPort int
+        Port for the WebUI (default 8080)
   -interval string
-        interval for checking new mails, default 300s (default "300s")
+        interval for checking new mails (default "300s")
   -keyFile string
-        location of the key file for password en-/decryption, default 'config/eatspam.key' (default "config/eatspam.key")
-  -port int
-        Port for the WebUI, default 8080 (default 8080)
+        location of the key file for password en-/decryption (default "config/eatspam.key")
+  -loglevel string
+        loglevel. One of panic, fatal, error, warn, info, debug or trace (default "info")
   -rspamdHost string
-        rspamd host name, default localhost (default "127.0.0.1")
+        rspamd host name (default "127.0.0.1")
   -rspamdPort int
-        Port of the rspamd server, default 11333 (default 11333)
+        Port of the rspamd server (default 11333)
   -rspamdUse
         use rspamd, default true (default true)
+  -spamHeader string
+        spam header to add to a spam mail (default "X-Spam-Flag: {{.YesNo}}\\r\\nX-Spam-Score: {{.Score}}\\r\\nX-Spam-Level: {{.Level}}\\r\\nX-Spam-Bar: {{.Bar}}\\r\\nX-Spam-Status: {{.YesNoCap}}, score={{.Score}}\\r\\n")
   -spamMark string
-        subject prefix for spam mails, default '*** SPAM ***' (default "*** SPAM ***")
-  -spamThreshold float
-        score to move to spam folder, default 5.0 (default 5)
+        subject prefix for spam mails (default "*** SPAM ***")
   -spamdHost string
-        spamd host name, default localhost (default "127.0.0.1")
+        spamd host name (default "127.0.0.1")
   -spamdPort int
-        Port of the spamd server, default 783 (default 783)
+        Port of the spamd server (default 783)
   -spamdUse
         use spamd, default true (default true)
+  -strategy string
+        strategy for spam handling (average, lowest, highest, spamd, rspamd (default "average")
 ```
 
 - `eatspam --daemon` gets all parameters from eatspam.yaml or uses default values
@@ -81,3 +87,14 @@ Use always spamd (spamassassin) result
 ### rspamd
 
 Use always rspamd result
+
+## Templates for adding spam header
+Variables:
+
+| Variable      | Description                |
+|---------------|----------------------------|
+| {{.YesNo}}    | is spam or not (YES or NO) |
+| {{.YesNoCap}} | is spam or not (Yes or No) |
+| {{.Score}}    | spam score of the mail     |
+| {{.Level}}    | spam score as asterisk bar |
+| {{.Bar}}      | spam score as bar of plus  |
