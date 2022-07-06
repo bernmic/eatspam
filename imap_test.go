@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"regexp"
 	"testing"
 )
 
@@ -188,6 +187,128 @@ func TestMarkHeader(t *testing.T) {
 	}
 }
 
+func TestEatspamSeen(t *testing.T) {
+	t.SkipNow()
+	c, err := setup()
+	if err != nil {
+		t.Fatalf("error setting up: %v", err)
+	}
+
+	ic, err := connectLastAccount(c)
+	if err != nil {
+		t.Fatalf("error connecting to imap:%v", err)
+	}
+	defer func() {
+		err := ic.client.Logout()
+		if err != nil {
+			log.Fatalf("error logging out: %v", err)
+		}
+	}()
+
+	mbox, err := ic.client.Select(ic.Inbox, false)
+	if err != nil {
+		t.Errorf("error selecting INBOX %s: %v\n", ic.Inbox, err)
+	}
+	if mbox.Messages > 0 {
+		var i uint32
+		for i = 1; i <= mbox.Messages; i++ {
+			msg, err := ic.fetchMessage(reverseSeqSet(i))
+			if err != nil {
+				log.Fatalf("error fetching mail for dumping flags: %v", err)
+			}
+			if msg == nil {
+				continue
+			}
+			if i%2 == 0 {
+				err = ic.markAsEatspamSeen(i)
+				if err != nil {
+					log.Fatalf("error mark as Eatspam seen: %v", err)
+				}
+			}
+		}
+	}
+}
+
+func TestEatspamUnseen(t *testing.T) {
+	c, err := setup()
+	if err != nil {
+		t.Fatalf("error setting up: %v", err)
+	}
+
+	ic, err := connectLastAccount(c)
+	if err != nil {
+		t.Fatalf("error connecting to imap:%v", err)
+	}
+	defer func() {
+		err := ic.client.Logout()
+		if err != nil {
+			log.Fatalf("error logging out: %v", err)
+		}
+	}()
+
+	mbox, err := ic.client.Select(ic.Inbox, false)
+	if err != nil {
+		t.Errorf("error selecting INBOX %s: %v\n", ic.Inbox, err)
+	}
+	if mbox.Messages > 0 {
+		ids, err := ic.searchEatspamUnread()
+		if err != nil {
+			log.Fatalf("error search eatspam unread: %v", err)
+		}
+		for _, i := range ids {
+			msg, err := ic.fetchMessage(reverseSeqSet(i))
+			if err != nil {
+				log.Fatalf("error fetching mail for dumping flags: %v", err)
+			}
+			if msg == nil {
+				continue
+			}
+			for _, f := range msg.Flags {
+				fmt.Println(f)
+			}
+		}
+	}
+}
+
+func TestDumpFlags(t *testing.T) {
+	t.SkipNow()
+	c, err := setup()
+	if err != nil {
+		t.Fatalf("error setting up: %v", err)
+	}
+
+	ic, err := connectLastAccount(c)
+	if err != nil {
+		t.Fatalf("error connecting to imap:%v", err)
+	}
+	defer func() {
+		err := ic.client.Logout()
+		if err != nil {
+			log.Fatalf("error logging out: %v", err)
+		}
+	}()
+
+	mbox, err := ic.client.Select(ic.Inbox, false)
+	if err != nil {
+		t.Errorf("error selecting INBOX %s: %v\n", ic.Inbox, err)
+	}
+	if mbox.Messages > 0 {
+		var i uint32
+		for i = 1; i <= mbox.Messages; i++ {
+			msg, err := ic.fetchMessage(reverseSeqSet(i))
+			if err != nil {
+				log.Fatalf("error fetching mail for dumping flags: %v", err)
+			}
+			if msg == nil {
+				continue
+			}
+			for _, f := range msg.Flags {
+				fmt.Println(f)
+			}
+		}
+	}
+}
+
 func TestReplace(t *testing.T) {
 	mail1 := `
 Subject: bla
@@ -204,7 +325,7 @@ Subject: bla
 X-Spam-Flag: OUI
 `
 
-	re := regexp.MustCompile("(?m)^X-Spam-Flag: [NY][OE][S]*$")
+	re := regexpSpamHeader
 	b := re.MatchString(mail1)
 	if !b {
 		t.Errorf("mail1 did not match")

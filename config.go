@@ -20,7 +20,6 @@ const (
 	defaultRspamdPort     = 11333
 	defaultRspamdUse      = true
 	defaultRspamdHost     = "127.0.0.1"
-	defaultSpamMoveScore  = 5.0
 	defaultInterval       = "300s"
 	defaultDaemon         = false
 	defaultHttpPort       = 8080
@@ -62,6 +61,7 @@ type Configuration struct {
 	LogLevel       string               `yaml:"logLevel,omitempty"`
 	Version        string               `yaml:"-"`
 	CollectMetrics bool                 `yaml:"collectMetrics,omitempty"`
+	SpamHeader     string               `yaml:"spamHeader,omitempty"`
 	encrypt        string
 	key            string
 }
@@ -192,6 +192,7 @@ func (c *Configuration) parseArguments() {
 	flag.StringVar(&cp.Strategy, "strategy", defaultStrategy, "strategy for spam handling (average, lowest, highest, default 'average'")
 	flag.StringVar(&cp.LogLevel, "loglevel", defaultLogLevel, "loglevel. One of panic, fatal, error, warn, info, debug or trace. Default is info")
 	flag.BoolVar(&cp.CollectMetrics, "collectMetrics", defaultCollectMetrics, "collect metrics for Prometheus, default true")
+	flag.StringVar(&cp.LogLevel, "spamHeader", defaultHeaderTemplate, "spam header to add to a spam mail")
 
 	flag.Parse()
 
@@ -217,6 +218,8 @@ func (c *Configuration) parseArguments() {
 	c.LogLevel = stringConfig("loglevel", cp.LogLevel, "LOGLEVEL", c.LogLevel)
 
 	c.CollectMetrics = boolConfig("collectMetrics", cp.CollectMetrics, "COLLECT_METRICS", c.CollectMetrics)
+
+	c.SpamHeader = stringConfig("spamHeader", cp.SpamHeader, "SPAM_HEADER", c.SpamHeader)
 }
 
 func isFlagPassed(name string) bool {

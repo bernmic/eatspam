@@ -102,8 +102,16 @@ func body(m *imap.Message) (string, error) {
 }
 
 func (ic *ImapConfiguration) searchUnread() ([]uint32, error) {
+	return ic.searchFlag(imap.SeenFlag)
+}
+
+func (ic *ImapConfiguration) searchEatspamUnread() ([]uint32, error) {
+	return ic.searchFlag(eatspamSeenFlag)
+}
+
+func (ic *ImapConfiguration) searchFlag(flag string) ([]uint32, error) {
 	criteria := imap.NewSearchCriteria()
-	criteria.WithoutFlags = []string{imap.SeenFlag}
+	criteria.WithoutFlags = []string{flag}
 
 	return ic.client.Search(criteria)
 }
@@ -111,7 +119,7 @@ func (ic *ImapConfiguration) searchUnread() ([]uint32, error) {
 func (ic *ImapConfiguration) fetchMessage(seqset *imap.SeqSet) (*imap.Message, error) {
 	log.Debugf("fetching message %v", seqset)
 	ch := make(chan *imap.Message, 1)
-	err := ic.client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchItem("BODY.PEEK[]")}, ch)
+	err := ic.client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchFlags, imap.FetchItem("BODY.PEEK[]")}, ch)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching message %v: %v", seqset, err)
 	}
@@ -123,7 +131,7 @@ func (ic *ImapConfiguration) fetchMessages(seqset *imap.SeqSet) ([]*imap.Message
 	msgs := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	go func() {
-		done <- ic.client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchItem("BODY.PEEK[]")}, msgs)
+		done <- ic.client.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchFlags, imap.FetchItem("BODY.PEEK[]")}, msgs)
 	}()
 
 	result := make([]*imap.Message, 0)
@@ -235,11 +243,18 @@ func (ic *ImapConfiguration) markSpamInHeader(spamScore float64, isSpam bool, id
 		return fmt.Errorf("error deleting message: %v", err)
 	}
 	var b bytes.Buffer
-	b.WriteString(fmt.Sprintf("X-Spam-Flag: %s\r\n", yesNo(isSpam)))
-	b.WriteString(fmt.Sprintf("X-Spam-Score: %0.3f\r\n", spamScore))
-	b.WriteString(fmt.Sprintf("X-Spam-Level: %s\r\n", strings.Repeat("*", int(spamScore))))
-	b.WriteString(fmt.Sprintf("X-Spam-Bar: %s\r\n", strings.Repeat("+", int(spamScore))))
-	b.WriteString(fmt.Sprintf("X-Spam-Status: %s, score=%0.1f\r\n", yesNoCap(isSpam), spamScore))
+	hd, err := header(isSpam, spamScore)
+	if err != nil {
+		return fmt.Errorf("error creating header data: %v", err)
+	}
+	b.Write(hd)
+	/*
+		b.WriteString(fmt.Sprintf("X-Spam-Flag: %s\r\n", yesNo(isSpam)))
+		b.WriteString(fmt.Sprintf("X-Spam-Score: %0.3f\r\n", spamScore))
+		b.WriteString(fmt.Sprintf("X-Spam-Level: %s\r\n", strings.Repeat("*", int(spamScore))))
+		b.WriteString(fmt.Sprintf("X-Spam-Bar: %s\r\n", strings.Repeat("+", int(spamScore))))
+		b.WriteString(fmt.Sprintf("X-Spam-Status: %s, score=%0.1f\r\n", yesNoCap(isSpam), spamScore))
+	*/
 	b.WriteString(s)
 	flags := []string{}
 	err = ic.client.Append(ic.Inbox, flags, dt, &b)
@@ -269,18 +284,4 @@ func reverseSeqSet(id ...uint32) *imap.SeqSet {
 		seqset.AddNum(i)
 	}
 	return seqset
-}
-
-func yesNo(b bool) string {
-	if b {
-		return "YES"
-	}
-	return "NO"
-}
-
-func yesNoCap(b bool) string {
-	if b {
-		return "Yes"
-	}
-	return "No"
 }
