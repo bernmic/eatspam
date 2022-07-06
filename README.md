@@ -98,3 +98,17 @@ Variables:
 | {{.Score}}    | spam score of the mail     |
 | {{.Level}}    | spam score as asterisk bar |
 | {{.Bar}}      | spam score as bar of plus  |
+
+Example:
+
+spam header `X-Spam-Flag: {{.YesNo}}\r\nX-Spam-Score: {{.Score}}\r\nX-Spam-Level: {{.Level}}\r\nX-Spam-Bar: {{.Bar}}\r\nX-Spam-Status: {{.YesNoCap}}, score={{.Score}}\r\n`
+
+will result in
+
+```
+X-Spam-Flag: YES
+X-Spam-Score: 3.3
+X-Spam-Level: ***
+X-Spam-Bar: +++
+X-Spam-Status: Yes, score=3.3
+```
