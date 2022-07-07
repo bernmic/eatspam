@@ -35,3 +35,4 @@ http:
   port: 8080
   password: <encrypted web password>
 collectMetrics: true
+spamHeader: X-Spam-Flag: {{.YesNo}}\r\nX-Spam-Score: {{.Score}}\r\nX-Spam-Level: {{.Level}}\r\nX-Spam-Bar: {{.Bar}}\r\nX-Spam-Status: {{.YesNoCap}}, score={{.Score}}\r\n
