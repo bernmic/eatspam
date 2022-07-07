@@ -71,6 +71,7 @@ type Configuration struct {
 	SpamHeader     string               `yaml:"spamHeader,omitempty"`
 	encrypt        string
 	key            string
+	cronActive     bool
 }
 
 type ImapConfiguration struct {

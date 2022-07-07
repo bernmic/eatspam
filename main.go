@@ -97,6 +97,15 @@ func (conf *Configuration) startCron() {
 }
 
 func (conf *Configuration) cron() {
+	if conf.cronActive {
+		log.Info("spamchecker still working. Stopping here.")
+		return
+	}
+	conf.cronActive = true
+	defer func() {
+		conf.cronActive = false
+	}()
+
 	err := conf.spamChecker()
 	if err != nil {
 		log.Errorf("error checking spam: %v", err)
