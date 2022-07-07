@@ -73,7 +73,7 @@ func (ic *ImapConfiguration) lastNMessages(mbox *imap.MailboxStatus, n uint32) (
 	return ic.fetchMessages(seqset)
 }
 
-func (ic *ImapConfiguration) messagesWithId(ids []uint32, unread bool) ([]*imap.Message, error) {
+func (ic *ImapConfiguration) messagesWithId(ids []uint32) ([]*imap.Message, error) {
 	msgs := make([]*imap.Message, 0)
 	for _, id := range ids {
 		seqset := new(imap.SeqSet)
@@ -83,6 +83,12 @@ func (ic *ImapConfiguration) messagesWithId(ids []uint32, unread bool) ([]*imap.
 			return nil, err
 		}
 		msgs = append(msgs, msg)
+		if ic.InboxBehaviour == behaviourEatspam {
+			err = ic.markAsEatspamSeen(id)
+			if err != nil {
+				log.Errorf("error adding flag %s to mail in account %s: %v", eatspamSeenFlag, ic.Name, err)
+			}
+		}
 	}
 	return msgs, nil
 }
@@ -212,6 +218,9 @@ func (ic *ImapConfiguration) markSpamInSubject(spamPrefix string, id uint32) err
 
 	b := bytes.NewBufferString(s)
 	flags := []string{}
+	if ic.InboxBehaviour == behaviourEatspam {
+		flags = append(flags, eatspamSeenFlag)
+	}
 	err = ic.client.Append(ic.Inbox, flags, dt, b)
 	if err != nil {
 		return fmt.Errorf("error writing mail copy to server: %v", err)
@@ -257,6 +266,9 @@ func (ic *ImapConfiguration) markSpamInHeader(spamScore float64, isSpam bool, id
 	*/
 	b.WriteString(s)
 	flags := []string{}
+	if ic.InboxBehaviour == behaviourEatspam {
+		flags = append(flags, eatspamSeenFlag)
+	}
 	err = ic.client.Append(ic.Inbox, flags, dt, &b)
 	if err != nil {
 		return fmt.Errorf("error writing mail copy to server: %v", err)

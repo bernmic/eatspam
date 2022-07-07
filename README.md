@@ -1,9 +1,11 @@
 # EatSpam
 
+## Description
 eatspam reads unread mails from configured IMAP servers and check them against Spamassassin and Rspamd. 
 If the Score is higher than the configured threshold, an action like `move to spam`, `marks subject` or 
 `add x-spam header` to the mail can be triggered.
 
+## CLI
 ```
 # eatspam --help
 Usage of eatspam:
@@ -112,3 +114,16 @@ X-Spam-Level: ***
 X-Spam-Bar: +++
 X-Spam-Status: Yes, score=3.3
 ```
+
+## Inbox behaviour
+
+eatspam has three behaviours what mails to process in inbox:
+
+### unseen
+Only unseen mails will be read and processed. This is the default behaviour.
+
+### eatspam
+Read and process all mails without the eatspam flag (`$EatspamSeen`). After fetching a mail, the eatspam flag will be set.
+
+### all
+Read and process always all mails.

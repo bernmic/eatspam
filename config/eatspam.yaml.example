@@ -6,7 +6,8 @@ imapAccounts:
     port: <imapport, default 993>
     tls: <true/false, default true>
     inbox: INBOX
-    spamFolder: Junkgto build .
+    spamFolder: Junk
+    inboxBehaviour: unseen
   - name: <name for this account>
     username: <imapuser>
     password: <imappassword encrypted>
@@ -15,6 +16,7 @@ imapAccounts:
     tls: <true/false, default true>
     inbox: INBOX
     spamFolder: Spam
+    inboxBehaviour: eatspam
 spamd:
   host: 127.0.0.1
   port: 783

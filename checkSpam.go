@@ -61,7 +61,17 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	if mbox.Messages == 0 {
 		return nil
 	}
-	ids, err := ic.searchUnread()
+	var ids []uint32
+	switch ic.InboxBehaviour {
+	case behaviourUnseen:
+		ids, err = ic.searchUnread()
+	case behaviourEatspam:
+		ids, err = ic.searchEatspamUnread()
+	case behaviourAll:
+		err = fmt.Errorf("inboxBehaviour 'all' is not implemented yes")
+	default:
+		err = fmt.Errorf("inboxBehaviour '%s' is not known", ic.InboxBehaviour)
+	}
 	if err != nil {
 		return fmt.Errorf("error searching unread mails: %v", err)
 	}
@@ -69,7 +79,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	if len(ids) > 0 {
 		log.Infof("%d unread messages: %v", len(ids), ids)
 		actions := make(map[uint32]checkSpamResult, 0)
-		msgs, err := ic.messagesWithId(ids, true)
+		msgs, err := ic.messagesWithId(ids)
 		if err != nil {
 			return fmt.Errorf("error fetching unread messages: %v", err)
 		}

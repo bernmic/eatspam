@@ -31,6 +31,7 @@ const (
 	defaultStrategy       = "average"
 	defaultLogLevel       = "info"
 	defaultCollectMetrics = true
+	defaultInboxBehaviour = behaviourUnseen
 )
 
 const (
@@ -39,6 +40,12 @@ const (
 	strategyHighest = "highest"
 	strategySpamd   = "spamd"
 	strategyRspamd  = "rspamd"
+)
+
+const (
+	behaviourAll     = "all"
+	behaviourUnseen  = "unseen"
+	behaviourEatspam = "eatspam"
 )
 
 var (
@@ -67,17 +74,18 @@ type Configuration struct {
 }
 
 type ImapConfiguration struct {
-	Name        string         `yaml:"name,omitempty"`
-	Username    string         `yaml:"username,omitempty"`
-	Password    string         `yaml:"password,omitempty"`
-	Host        string         `yaml:"host,omitempty"`
-	Port        int            `yaml:"port,omitempty"`
-	Tls         bool           `yaml:"tls,omitempty"`
-	Inbox       string         `yaml:"inbox,omitempty"`
-	SpamFolder  string         `yaml:"spamFolder,omitempty"`
-	Ok          bool           `yaml:"-"`
-	UnreadMails int            `yaml:"-"`
-	client      *client.Client `yaml:"-"`
+	Name           string         `yaml:"name,omitempty"`
+	Username       string         `yaml:"username,omitempty"`
+	Password       string         `yaml:"password,omitempty"`
+	Host           string         `yaml:"host,omitempty"`
+	Port           int            `yaml:"port,omitempty"`
+	Tls            bool           `yaml:"tls,omitempty"`
+	Inbox          string         `yaml:"inbox,omitempty"`
+	SpamFolder     string         `yaml:"spamFolder,omitempty"`
+	InboxBehaviour string         `yaml:"inboxBehaviour,omitempty"`
+	Ok             bool           `yaml:"-"`
+	UnreadMails    int            `yaml:"-"`
+	client         *client.Client `yaml:"-"`
 }
 
 type SpamdConfiguration struct {
@@ -148,6 +156,9 @@ func New() (*Configuration, error) {
 		}
 		if a.SpamFolder == "" {
 			a.SpamFolder = defaultImapSpamFolder
+		}
+		if a.InboxBehaviour == "" {
+			a.InboxBehaviour = defaultInboxBehaviour
 		}
 	}
 	if c.Actions == nil || len(c.Actions) == 0 {
