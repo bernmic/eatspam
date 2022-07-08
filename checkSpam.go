@@ -61,82 +61,71 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 	if mbox.Messages == 0 {
 		return nil
 	}
-	var ids []uint32
-	switch ic.InboxBehaviour {
-	case behaviourUnseen:
-		ids, err = ic.searchUnread()
-	case behaviourEatspam:
-		ids, err = ic.searchEatspamUnread()
-	case behaviourAll:
-		err = fmt.Errorf("inboxBehaviour 'all' is not implemented yes")
-	default:
-		err = fmt.Errorf("inboxBehaviour '%s' is not known", ic.InboxBehaviour)
-	}
+	ids, err := ic.searchMails()
 	if err != nil {
-		return fmt.Errorf("error searching unread mails: %v", err)
+		return fmt.Errorf("error searching mails to process: %v", err)
 	}
 	ic.UnreadMails = len(ids)
-	if len(ids) > 0 {
-		log.Infof("%d unread messages: %v", len(ids), ids)
-		actions := make(map[uint32]checkSpamResult, 0)
-		msgs, err := ic.messagesWithId(ids)
-		if err != nil {
-			return fmt.Errorf("error fetching unread messages: %v", err)
+	ids = reverseSort(ids)
+	for _, id := range ids {
+		msg, s, err := ic.getMessage(id)
+		spamdChan := make(chan checkSpamResult)
+		rspamdChan := make(chan checkSpamResult)
+		if conf.Spamd.Use {
+			go conf.Spamd.spamdCheckIfSpam(s, conf.Actions, spamdChan)
 		}
-		for _, msg := range msgs {
-			s, err := body(msg)
+		if conf.Rspamd.Use {
+			go conf.Rspamd.rspamdCheckIfSpam(s, rspamdChan)
+		}
+		result := conf.overallResult(msg, spamdChan, rspamdChan)
+		if result.err == nil {
+			conf.pushAction(result.action)
+			err = ic.doAction(id, result, conf)
 			if err != nil {
-				log.Errorf("error getting mail body: %v", err)
 				continue
 			}
-			spamdChan := make(chan checkSpamResult)
-			rspamdChan := make(chan checkSpamResult)
-			if conf.Spamd.Use {
-				go conf.Spamd.spamdCheckIfSpam(s, conf.Actions, spamdChan)
-			}
-			if conf.Rspamd.Use {
-				go conf.Rspamd.rspamdCheckIfSpam(s, rspamdChan)
-			}
-			result := conf.overallResult(msg, spamdChan, rspamdChan)
-			if result.err == nil {
-				conf.pushAction(result.action)
-				if result.action != spamActionNoAction {
-					log.Infof("action for message %d is %s", msg.SeqNum, result.action)
-					actions[msg.SeqNum] = result
-				} else {
-					log.Debugf("action for message %d is %s", msg.SeqNum, result.action)
-				}
-			}
-		}
-		if len(actions) > 0 {
-			actionIds := make([]uint32, 0)
-			for k, _ := range actions {
-				actionIds = append(actionIds, k)
-			}
-			for i := len(actionIds) - 1; i >= 0; i-- {
-				cr := actions[actionIds[i]]
-				switch cr.action {
-				case spamActionReject:
-					err = ic.moveToSpam(actionIds[i])
-					if err != nil {
-						log.Errorf("error moving spams to spam folder: %v", err)
-					}
-				case spamActionAddHeader:
-					err = ic.markSpamInHeader(cr.score, true, actionIds[i])
-					if err != nil {
-						log.Errorf("error adding header to spam mails: %v", err)
-					}
-				case spamActionRewriteSubject:
-					err = ic.markSpamInSubject(conf.SpamPrefix, actionIds[i])
-					if err != nil {
-						log.Errorf("error rewriting subject of spam mails: %v", err)
-					}
+			if ic.InboxBehaviour == behaviourEatspam &&
+				result.action != spamActionReject &&
+				result.action != spamActionAddHeader &&
+				result.action != spamActionRewriteSubject {
+				err = ic.markAsEatspamSeen(id)
+				if err != nil {
+					log.Errorf("error adding flag %s to mail in account %s: %v", eatspamSeenFlag, ic.Name, err)
 				}
 			}
 		}
 	}
 	log.Infof("end checking mail for account %s on host %s", ic.Name, ic.Host)
 	return nil
+}
+
+func (ic *ImapConfiguration) doAction(id uint32, result checkSpamResult, conf *Configuration) error {
+	var err error
+	switch result.action {
+	case spamActionReject:
+		log.Infof("action for message %d is %s. Move to spam folder", id, result.action)
+		err = ic.moveToSpam(id)
+		if err != nil {
+			log.Errorf("error moving spam %d to spam folder: %v", id, err)
+		}
+	case spamActionAddHeader:
+		log.Infof("action for message %d is %s", id, result.action)
+		err = ic.markSpamInHeader(result.score, true, id)
+		if err != nil {
+			log.Errorf("error adding header to spam mail %d: %v", id, err)
+		}
+	case spamActionRewriteSubject:
+		log.Infof("action for message %d is %s", id, result.action)
+		err = ic.markSpamInSubject(conf.SpamPrefix, id)
+		if err != nil {
+			log.Errorf("error rewriting subject of spam mail %d: %v", id, err)
+		}
+	case spamActionGreylist, spamActionNoAction:
+		log.Debugf("action for message %d is %s. Skip action", id, result.action)
+	default:
+		log.Warnf("unknown action %s", result.action)
+	}
+	return err
 }
 
 func (conf *Configuration) overallResult(msg *imap.Message, spamdChan chan checkSpamResult, rspamdChan chan checkSpamResult) checkSpamResult {
@@ -249,4 +238,11 @@ func (conf *Configuration) averageAction(score float64) string {
 		}
 	}
 	return spamActionNoAction
+}
+
+func reverseSort(ids []uint32) []uint32 {
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i] > ids[j]
+	})
+	return ids
 }

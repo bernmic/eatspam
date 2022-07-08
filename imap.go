@@ -73,26 +73,6 @@ func (ic *ImapConfiguration) lastNMessages(mbox *imap.MailboxStatus, n uint32) (
 	return ic.fetchMessages(seqset)
 }
 
-func (ic *ImapConfiguration) messagesWithId(ids []uint32) ([]*imap.Message, error) {
-	msgs := make([]*imap.Message, 0)
-	for _, id := range ids {
-		seqset := new(imap.SeqSet)
-		seqset.AddNum(id)
-		msg, err := ic.fetchMessage(seqset)
-		if err != nil {
-			return nil, err
-		}
-		msgs = append(msgs, msg)
-		if ic.InboxBehaviour == behaviourEatspam {
-			err = ic.markAsEatspamSeen(id)
-			if err != nil {
-				log.Errorf("error adding flag %s to mail in account %s: %v", eatspamSeenFlag, ic.Name, err)
-			}
-		}
-	}
-	return msgs, nil
-}
-
 func body(m *imap.Message) (string, error) {
 	b := []byte{}
 	for name, literal := range m.Body {
@@ -285,6 +265,35 @@ func (ic *ImapConfiguration) markAsEatspamSeen(id uint32) error {
 		return fmt.Errorf("error adding flag to mail: %v", err)
 	}
 	return nil
+}
+
+func (ic *ImapConfiguration) getMessage(id uint32) (*imap.Message, string, error) {
+	seqset := new(imap.SeqSet)
+	seqset.AddNum(id)
+	msg, err := ic.fetchMessage(seqset)
+	if err != nil {
+		log.Errorf("error fetching message %d from account %s: %v", id, ic.Name, err)
+		return nil, "", err
+	}
+	s, err := body(msg)
+	if err != nil {
+		log.Errorf("error getting mail body: %v", err)
+		return msg, "", err
+	}
+	return msg, s, nil
+}
+
+func (ic *ImapConfiguration) searchMails() ([]uint32, error) {
+	switch ic.InboxBehaviour {
+	case behaviourUnseen:
+		return ic.searchUnread()
+	case behaviourEatspam:
+		return ic.searchEatspamUnread()
+	case behaviourAll:
+		return nil, fmt.Errorf("inboxBehaviour 'all' is not implemented yes")
+	default:
+		return nil, fmt.Errorf("inboxBehaviour '%s' is not known", ic.InboxBehaviour)
+	}
 }
 
 func reverseSeqSet(id ...uint32) *imap.SeqSet {
