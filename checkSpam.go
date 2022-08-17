@@ -22,6 +22,8 @@ const (
 	spamActionGreylist       = "greylist"
 )
 
+var queue = NewQueue()
+
 func (conf *Configuration) spamChecker() error {
 	for _, ic := range conf.ImapAccounts {
 		err := ic.checkSpam(conf)
@@ -84,6 +86,7 @@ func (ic *ImapConfiguration) checkSpam(conf *Configuration) error {
 			if err != nil {
 				continue
 			}
+			queue.queueMessage(ic, result, msg, s)
 			if ic.InboxBehaviour == behaviourEatspam &&
 				result.action != spamActionReject &&
 				result.action != spamActionAddHeader &&
@@ -245,4 +248,32 @@ func reverseSort(ids []uint32) []uint32 {
 		return ids[i] > ids[j]
 	})
 	return ids
+}
+
+func (conf *Configuration) learnHam(qe *QueueElement) error {
+	var errSpamd, errRspamd error
+	if conf.Spamd.Use {
+		errSpamd = nil
+	}
+	if conf.Rspamd.Use {
+		errRspamd = conf.Rspamd.learnHam(qe.Body)
+	}
+	if errSpamd != nil {
+		return errSpamd
+	}
+	return errRspamd
+}
+
+func (conf *Configuration) learnSpam(qe *QueueElement) error {
+	var errSpamd, errRspamd error
+	if conf.Spamd.Use {
+		errSpamd = nil
+	}
+	if conf.Rspamd.Use {
+		errRspamd = conf.Rspamd.learnSpam(qe.Body)
+	}
+	if errSpamd != nil {
+		return errSpamd
+	}
+	return errRspamd
 }

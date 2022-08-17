@@ -122,7 +122,9 @@ func (ic *ImapConfiguration) fetchMessages(seqset *imap.SeqSet) ([]*imap.Message
 
 	result := make([]*imap.Message, 0)
 	for msg := range msgs {
-		log.Debug("* " + msg.Envelope.Subject)
+		if msg != nil && msg.Envelope != nil {
+			log.Debug("* " + msg.Envelope.Subject)
+		}
 		result = append(result, msg)
 	}
 

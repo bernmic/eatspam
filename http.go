@@ -77,6 +77,28 @@ func (conf *Configuration) handlerIndex(w http.ResponseWriter, r *http.Request) 
 		http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
 		conf.pushRequests(r, http.StatusMovedPermanently)
 
+	} else if r.URL.Path == "/ham" {
+		m := r.URL.Query().Get("m")
+		log.Debugf("make %s to ham", m)
+		qe := queue.byId(m)
+		if qe != nil {
+			err := conf.learnHam(qe)
+			if err != nil {
+				log.Errorf("error learning ham: %v", err)
+			}
+		}
+		http.Redirect(w, r, "/mails.html", http.StatusFound)
+	} else if r.URL.Path == "/spam" {
+		m := r.URL.Query().Get("m")
+		log.Debugf("make %s to spam", m)
+		qe := queue.byId(m)
+		if qe != nil {
+			err := conf.learnSpam(qe)
+			if err != nil {
+				log.Errorf("error learning spam: %v", err)
+			}
+		}
+		http.Redirect(w, r, "/mails.html", http.StatusFound)
 	} else if f, err := templates.Open(templateDir + r.URL.Path); err == nil {
 		f.Close()
 		conf.handleTemplate(w, r)
@@ -102,8 +124,14 @@ func (conf *Configuration) handleTemplate(w http.ResponseWriter, r *http.Request
 			return
 		}
 		conf.renderAccount(w, r)
+	case "/mails.html":
+
 	}
 	accessLog(r, http.StatusOK, r.RequestURI)
+	if !conf.checkLoggedIn(w, r) {
+		return
+	}
+	conf.renderMails(w, r)
 }
 
 func (conf *Configuration) serveFile(w http.ResponseWriter, r *http.Request) {
@@ -230,6 +258,9 @@ func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request)
 					MailboxNames: mbs,
 				}
 				err = t.Execute(w, &ad)
+				if err != nil {
+					log.Errorf("error executing account template: %v", err)
+				}
 				return
 			}
 		}
@@ -239,6 +270,27 @@ func (conf *Configuration) renderAccount(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "index.html", http.StatusFound)
 	conf.pushRequests(r, http.StatusFound)
 	//renderNotFound(w, r)
+}
+
+type MailsData struct {
+	Page     string
+	Elements []*QueueElement
+}
+
+func (conf *Configuration) renderMails(w http.ResponseWriter, r *http.Request) {
+	t, err := template.ParseFS(templates, templateDir+r.URL.Path, templateDir+"/navbar.html")
+	if err != nil {
+		log.Errorf("error parsing template %s: %v", r.URL.Path, err)
+		conf.renderServerError(w, r)
+		return
+	}
+	err = t.Execute(w, MailsData{
+		Page:     "mails",
+		Elements: queue.asList(),
+	})
+	if err != nil {
+		log.Errorf("error executing mails template: %v", err)
+	}
 }
 
 func (conf *Configuration) checkLoggedIn(w http.ResponseWriter, r *http.Request) bool {

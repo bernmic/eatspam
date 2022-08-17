@@ -17,6 +17,13 @@
                     <a class="nav-link" href="/index.html">Home</a>
                     {{end}}
                 </li>
+                <li class="nav-item">
+                    {{if eq $.Page "mails"}}
+                    <a class="nav-link active" aria-current="page" href="/mails.html">Mails</a>
+                    {{else}}
+                    <a class="nav-link" href="/mails.html">Mails</a>
+                    {{end}}
+                </li>
             </ul>
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item float-end">

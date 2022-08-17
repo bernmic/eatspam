@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>EatSpam - Mails</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    {{template "navbar" .}}
+    <div class="list-group">
+    {{range $element := .Elements}}
+        <div class="list-group-item list-group-item-{{$element.Class}}">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">{{$element.Subject}}</h5>
+                <small>{{$element.Date}}</small>
+            </div>
+            <p class="mb-1">{{$element.Sender}}</p>
+            <small>Score {{$element.Score}} with action {{$element.Action}}&nbsp;<a class="btn btn-sm btn-success" href="/ham?m={{$element.Id}}">Ham</a><a class="btn btn-sm btn-danger" href="/spam?m={{$element.Id}}">Spam</a></small>
+        </div>
+    {{end}}
+    </div>
+    <script src="js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

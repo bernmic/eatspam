@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	rspamd "github.com/Shopify/go-rspamd/v3"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 )
@@ -25,4 +26,32 @@ func (conf *RspamdConfiguration) rspamdCheckIfSpam(s string, result chan checkSp
 
 func (conf *RspamdConfiguration) url() string {
 	return fmt.Sprintf("http://%s:%d", conf.Host, conf.Port)
+}
+
+func (conf *RspamdConfiguration) learnHam(body string) error {
+	ctx := context.Background()
+	c := rspamd.New(conf.url())
+	lr := rspamd.LearnRequest{
+		Message: strings.NewReader(body),
+		Header:  http.Header{},
+	}
+	l, err := c.LearnHam(ctx, &lr)
+	if l.Success {
+		log.Info("successfully learned ham")
+	}
+	return err
+}
+
+func (conf *RspamdConfiguration) learnSpam(body string) error {
+	ctx := context.Background()
+	c := rspamd.New(conf.url())
+	lr := rspamd.LearnRequest{
+		Message: strings.NewReader(body),
+		Header:  http.Header{},
+	}
+	l, err := c.LearnSpam(ctx, &lr)
+	if l.Success {
+		log.Info("successfully learned spam")
+	}
+	return err
 }

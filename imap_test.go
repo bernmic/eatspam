@@ -127,6 +127,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestMarkSubject(t *testing.T) {
+	t.SkipNow()
 	c, err := setup()
 	if err != nil {
 		t.Fatalf("error setting up: %v", err)
@@ -230,6 +231,7 @@ func TestEatspamSeen(t *testing.T) {
 }
 
 func TestEatspamUnseen(t *testing.T) {
+	t.SkipNow()
 	c, err := setup()
 	if err != nil {
 		t.Fatalf("error setting up: %v", err)
