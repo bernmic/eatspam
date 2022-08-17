@@ -34,8 +34,8 @@ jobs:
 
     - name: Login to Docker Hub
       run: |
-        docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}} registry-1.docker.io
 
     - name: Build and push images
       run: |
+        docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
         docker buildx build --push --platform linux/arm/v7,linux/arm64/v8,linux/amd64 --tag darthbermel/eatspam:test .
